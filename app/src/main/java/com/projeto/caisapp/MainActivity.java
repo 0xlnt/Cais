@@ -4,6 +4,8 @@ import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.text.InputType;
@@ -38,6 +40,24 @@ public class MainActivity extends AppCompatActivity {
     private boolean favoritesOnly=false, delivery=false;
     private int units=2, sellerIndex=0, sort=0, bannerIndex=0;
     private final Deque<String> history=new ArrayDeque<>();
+    private static final int[] RECOMMENDED_PRODUCTS={4,5,6,1,2,0};
+    private final Handler recommendationHandler=new Handler(Looper.getMainLooper());
+    private LinearLayout recommendationItems;
+    private int recommendationOffset=0;
+    private boolean resumed=false;
+    private final Runnable rotateRecommendations=new Runnable() {
+        @Override public void run() {
+            if(!resumed || !screen.equals("home") || recommendationItems==null)return;
+            final LinearLayout items=recommendationItems;
+            items.animate().alpha(0f).translationY(dp(4)).setDuration(160).withEndAction(()->{
+                if(!resumed || !screen.equals("home") || recommendationItems!=items)return;
+                recommendationOffset=(recommendationOffset+1)%RECOMMENDED_PRODUCTS.length;
+                populateProductCards(items,true);
+                items.animate().alpha(1f).translationY(0f).setDuration(220).withEndAction(null).start();
+                scheduleRecommendations();
+            }).start();
+        }
+    };
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -51,6 +71,7 @@ public class MainActivity extends AppCompatActivity {
             delivery=state.getBoolean("delivery");payment=state.getString("payment","PIX");
             addressDraft=state.getString("address",addressDraft);noteDraft=state.getString("note","");
             orderId=state.getString("order","");orderFilter=state.getString("orderFilter","Todos");
+            recommendationOffset=state.getInt("recommendationOffset",0);
             ArrayList<String> stack=state.getStringArrayList("history");if(stack!=null) history.addAll(stack);
         }
         EdgeToEdge.enable(this);
@@ -74,6 +95,24 @@ public class MainActivity extends AppCompatActivity {
         });
         render();
     }
+    @Override protected void onResume() {
+        super.onResume();resumed=true;scheduleRecommendations();
+    }
+    @Override protected void onPause() {
+        resumed=false;stopRecommendations();super.onPause();
+    }
+    private void stopRecommendations() {
+        recommendationHandler.removeCallbacks(rotateRecommendations);
+        if(recommendationItems!=null) {
+            recommendationItems.animate().cancel();
+            recommendationItems.setAlpha(1f);recommendationItems.setTranslationY(0f);
+        }
+    }
+    private void scheduleRecommendations() {
+        recommendationHandler.removeCallbacks(rotateRecommendations);
+        if(resumed && screen.equals("home") && recommendationItems!=null)
+            recommendationHandler.postDelayed(rotateRecommendations,6000);
+    }
     @Override protected void onSaveInstanceState(Bundle out) {
         super.onSaveInstanceState(out);
         out.putString("screen",screen);out.putString("product",productId);out.putString("query",query);
@@ -82,6 +121,7 @@ public class MainActivity extends AppCompatActivity {
         out.putString("payment",payment);out.putString("address",addressDraft);out.putString("note",noteDraft);
         out.putString("order",orderId);out.putString("orderFilter",orderFilter);
         out.putStringArrayList("history",new ArrayList<>(history));
+        out.putInt("recommendationOffset",recommendationOffset);
     }
     private int dp(float n) {return Math.round(n*getResources().getDisplayMetrics().density);}
     private LinearLayout column() {LinearLayout l=new LinearLayout(this);l.setOrientation(LinearLayout.VERTICAL);return l;}
@@ -133,6 +173,8 @@ public class MainActivity extends AppCompatActivity {
     }
     private void browse(String cat,String term) {category=cat;query=term;favoritesOnly=false;go("search");}
     private void render() {
+        stopRecommendations();recommendationItems=null;
+        if(body!=null)body.animate().cancel();
         container.removeAllViews();
         ScrollView scroll=new ScrollView(this);scroll.setFillViewport(true);scroll.setClipToPadding(false);
         body=column();body.setPadding(dp(25),dp(20),dp(25),dp(24));
@@ -144,6 +186,9 @@ public class MainActivity extends AppCompatActivity {
             case "sellers":sellers();break;case "chat":chat();break;default:screen="home";home();
         }
         bottomNav();
+        body.setAlpha(0f);body.setTranslationY(dp(8));
+        body.animate().alpha(1f).translationY(0f).setDuration(200).start();
+        scheduleRecommendations();
     }
     private void header() {
         LinearLayout top=row();
@@ -186,6 +231,7 @@ public class MainActivity extends AppCompatActivity {
             });
         } else {
             TextView t=text("Buscar peixe, camarão, vendedor...",10,false);t.setTextColor(MUTED);
+            t.setGravity(Gravity.CENTER_VERTICAL);t.setSingleLine(true);t.setIncludeFontPadding(false);
             field.addView(t,new LinearLayout.LayoutParams(0,dp(40),1));
             field.setOnClickListener(v->browse("Todos",""));field.setContentDescription("Buscar produtos");
         }
@@ -241,8 +287,19 @@ public class MainActivity extends AppCompatActivity {
     }
     private void productCarousel(boolean recommended) {
         HorizontalScrollView sc=new HorizontalScrollView(this);sc.setHorizontalScrollBarEnabled(false);LinearLayout r=row();
+        if(recommended)recommendationItems=r;
+        populateProductCards(r,recommended);
+        sc.addView(r);body.addView(sc,lp(-1,-2));
+    }
+    private void populateProductCards(LinearLayout r,boolean recommended) {
+        r.removeAllViews();
         int width=Math.max(86,(int)(getResources().getDisplayMetrics().widthPixels/getResources().getDisplayMetrics().density-62)/4);
-        int[] indices=recommended?new int[]{0,1,2,3,4,5}:new int[]{0,1,2,0,4,6};
+        int[] indices=new int[]{0,1,2,0,4,6};
+        if(recommended) {
+            indices=new int[RECOMMENDED_PRODUCTS.length];
+            for(int i=0;i<indices.length;i++)
+                indices[i]=RECOMMENDED_PRODUCTS[(i+recommendationOffset)%RECOMMENDED_PRODUCTS.length];
+        }
         for(int index:indices){Catalog.Product p=Catalog.PRODUCTS.get(index);LinearLayout card=column();pad(card,3);
             card.setBackground(background(PALE,6,false));card.setElevation(dp(2));
             FrameLayout photo=new FrameLayout(this);ImageView im=image(p.homeImage,-1,49,p.name);photo.addView(im,new FrameLayout.LayoutParams(-1,dp(49)));
@@ -269,7 +326,6 @@ public class MainActivity extends AppCompatActivity {
             seller.setOnClickListener(v->{sellerIndex=p.seller;go("seller");});card.setOnClickListener(v->openProduct(p));
             LinearLayout.LayoutParams cp=lp(width,-2);cp.rightMargin=dp(6);cp.bottomMargin=dp(5);r.addView(card,cp);
         }
-        sc.addView(r);body.addView(sc,lp(-1,-2));
     }
     private void sellerCarousel() {
         HorizontalScrollView sc=new HorizontalScrollView(this);sc.setHorizontalScrollBarEnabled(false);LinearLayout r=row();
