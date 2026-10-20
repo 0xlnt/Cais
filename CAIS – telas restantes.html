@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CAIS – Telas restantes</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--navy:#0b3a6b;--teal:#13b4c8;--ice:#e6eff8;--card:#fff;--line:#d3e0ee;--mut:#6b819a;--ok:#1f9d6b;--page:#f3f6fa;--ink:#0b3a6b;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--page:#14181d;--ink:#dbe8f5}}
+:root[data-theme="dark"]{--page:#14181d;--ink:#dbe8f5}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--ink);font-family:Inter,system-ui,sans-serif}
+header{padding:28px 20px 6px;max-width:1500px;margin:auto}
+h1{margin:0 0 6px;font-size:26px;color:var(--ink)}
+header p{margin:0;color:var(--mut);max-width:70ch;line-height:1.5}
+.row{display:flex;gap:28px;padding:20px;overflow-x:auto;max-width:1500px;margin:auto;align-items:flex-start}
+figure{margin:0;flex:0 0 300px}
+figcaption{font-weight:700;margin-bottom:10px;color:var(--ink)}
+.ph{width:300px;height:620px;background:#fff;border-radius:26px;border:1px solid var(--line);box-shadow:0 6px 24px rgba(11,58,107,.14);overflow:hidden;display:flex;flex-direction:column;color:var(--navy);font-size:13px}
+.top{display:flex;align-items:center;gap:8px;padding:14px 16px 8px;font-weight:800;font-size:17px}
+.logo{color:var(--navy);font-weight:800;font-size:22px}.logo i{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--teal);margin-left:1px}
+.body{flex:1;overflow:auto;padding:6px 16px 12px}
+.foot{padding:12px 16px 16px;border-top:1px solid var(--line);background:#fff}
+.btn{width:100%;border:0;border-radius:12px;background:var(--navy);color:#fff;font:700 15px Inter,sans-serif;padding:14px;cursor:pointer}
+.btn:focus-visible,.seg button:focus-visible,.sm:focus-visible,.q button:focus-visible{outline:3px solid var(--teal);outline-offset:2px}
+.btn.alt{background:var(--teal)}
+.seg{display:flex;background:var(--ice);border-radius:12px;padding:4px;gap:4px;margin:6px 0 12px}
+.seg button{flex:1;border:0;background:transparent;border-radius:9px;padding:10px 4px;font:600 13px Inter,sans-serif;color:var(--navy);cursor:pointer}
+.seg button.on{background:var(--navy);color:#fff}
+label{display:block;font-weight:600;font-size:12px;margin:10px 0 5px;color:var(--navy)}
+.in{width:100%;border:1.5px solid var(--line);border-radius:10px;padding:11px 12px;font:500 14px Inter,sans-serif;color:var(--navy);background:#fff}
+.card{background:var(--ice);border-radius:14px;padding:10px;display:flex;gap:10px;align-items:center;margin-bottom:10px}
+.th{width:58px;height:58px;border-radius:10px;background:linear-gradient(135deg,#7fb6d9,#3b7fae);flex:none;display:grid;place-items:center;color:#fff;font-size:11px;font-weight:700}
+.th.b{background:linear-gradient(135deg,#f0a58b,#d1604a)}
+.grow{flex:1;min-width:0}.nm{font-weight:700;font-size:14px}.mu{color:var(--mut);font-size:12px}.pr{font-weight:800;font-size:15px}
+.q{display:flex;align-items:center;gap:8px;margin-top:6px}
+.q button{width:28px;height:28px;border-radius:8px;border:0;background:var(--navy);color:#fff;font-weight:700;font-size:16px;cursor:pointer}
+.sum{display:flex;justify-content:space-between;padding:5px 0}.sum.t{font-weight:800;font-size:17px;border-top:1px solid var(--line);margin-top:6px;padding-top:10px}
+.tl{list-style:none;margin:14px 0 0;padding:0}
+.tl li{position:relative;padding:0 0 26px 40px;color:var(--mut);font-weight:600;font-size:14px}
+.tl li::before{content:"";position:absolute;left:0;top:0;width:26px;height:26px;border-radius:50%;background:var(--ice);border:2px solid var(--line)}
+.tl li::after{content:"";position:absolute;left:12px;top:28px;width:2px;height:calc(100% - 28px);background:var(--line)}
+.tl li:last-child::after{display:none}
+.tl li.done{color:var(--navy)}.tl li.done::before{background:var(--teal);border-color:var(--teal);content:"✓";color:#fff;text-align:center;font-size:14px;line-height:22px}
+.tl li.done::after{background:var(--teal)}
+.tl li.now{color:var(--navy);font-weight:800}.tl li.now::before{border-color:var(--teal);background:#fff;box-shadow:0 0 0 4px rgba(19,180,200,.25)}
+.tl small{display:block;font-weight:500;color:var(--mut);font-size:12px;margin-top:2px}
+.pill{display:inline-block;padding:3px 9px;border-radius:99px;background:#fff;border:1px solid var(--line);font-size:11px;font-weight:700}
+.sm{border:0;border-radius:10px;background:var(--teal);color:#fff;font:700 12px Inter,sans-serif;padding:9px 10px;cursor:pointer;margin-top:8px}
+.sm[disabled]{background:var(--ok);cursor:default}
+.up{border:2px dashed var(--line);border-radius:14px;height:120px;display:grid;place-items:center;text-align:center;color:var(--mut);font-weight:600;background:var(--ice)}
+.sw{display:flex;align-items:center;justify-content:space-between;margin-top:14px;font-weight:700}
+.sw .seg{margin:0;width:150px}
+.hint{font-size:12px;color:var(--mut);margin:6px 0}
+.ok{background:var(--ok);color:#fff;border-radius:12px;padding:10px;font-weight:700;text-align:center;margin-top:8px;display:none}
+</style>
+</head>
+<body>
+<header>
+<h1>CAIS – telas restantes do protótipo</h1>
+<p>Carrinho, Checkout, Status, Login, Painel do vendedor e Cadastro de produto. É clicável: mude a quantidade no carrinho, escolha entrega ou retirada, e use o botão do Painel do vendedor para ver o Status do pedido do cliente mudar.</p>
+</header>
+<main class="row">
+
+<figure><figcaption>1. Login / Cadastro</figcaption>
+<div class="ph"><div class="top"><span class="logo">Cais<i></i></span></div>
+<div class="body">
+<div class="seg" id="perfil"><button class="on">Sou cliente</button><button>Sou vendedor</button></div>
+<label for="n">Nome completo</label><input id="n" class="in" placeholder="Seu nome">
+<label for="d">CPF ou CNPJ</label><input id="d" class="in" inputmode="numeric" placeholder="000.000.000-00">
+<label for="e">E-mail</label><input id="e" class="in" type="email" placeholder="voce@email.com">
+<label for="s">Senha</label><input id="s" class="in" type="password" placeholder="Mínimo 6 caracteres">
+<p class="hint" id="dica">Você vai comprar peixe fresco de vendedores de Manaus.</p>
+</div>
+<div class="foot"><button class="btn">Criar conta</button><p class="hint" style="text-align:center;margin:10px 0 0">Já tem conta? <b>Entrar</b></p></div></div></figure>
+
+<figure><figcaption>2. Carrinho</figcaption>
+<div class="ph"><div class="top">Carrinho</div>
+<div class="body" id="itens"></div>
+<div class="foot"><div class="sum"><span>Subtotal</span><b id="sub1"></b></div><button class="btn">Continuar</button></div></div></figure>
+
+<figure><figcaption>3. Checkout</figcaption>
+<div class="ph"><div class="top">Finalizar pedido</div>
+<div class="body">
+<div class="seg" id="modo"><button class="on">Entrega</button><button>Retirada</button></div>
+<div id="bEnt"><label for="end">Endereço</label><input id="end" class="in" value="Rua das Palmeiras, 120">
+<label for="zona">Zona de entrega</label><select id="zona" class="in"><option value="6">Centro – R$ 6,00</option><option value="8">Adrianópolis – R$ 8,00</option><option value="12">Cidade Nova – R$ 12,00</option></select></div>
+<div id="bRet" style="display:none"><label for="pt">Ponto de retirada</label><select id="pt" class="in"><option>Feira da Panair – Banca 14</option><option>Mercado Adolpho Lisboa</option></select><p class="hint">Retirada sem taxa.</p></div>
+<div style="margin-top:14px"><div class="sum"><span>Subtotal</span><span id="sub2"></span></div><div class="sum"><span>Taxa da zona</span><span id="taxa"></span></div><div class="sum t"><span>Total</span><span id="tot"></span></div></div>
+<div class="ok" id="okp">Pedido confirmado! Veja em Status do pedido.</div>
+</div>
+<div class="foot"><button class="btn alt" id="conf">Confirmar pedido</button></div></div></figure>
+
+<figure><figcaption>4. Status do pedido (cliente)</figcaption>
+<div class="ph"><div class="top">Pedido #1042</div>
+<div class="body"><span class="pill">Tambaqui 1,5 kg + Camarão 0,5 kg</span><ol class="tl" id="tl"></ol></div>
+<div class="foot"><p class="hint" style="margin:0;text-align:center">A linha do tempo muda quando o vendedor atualiza o pedido.</p></div></div></figure>
+
+<figure><figcaption>5. Painel do vendedor</figcaption>
+<div class="ph"><div class="top">Pedidos recebidos</div>
+<div class="body" id="ped"></div>
+<div class="foot"><button class="btn">+ Cadastrar produto</button></div></div></figure>
+
+<figure><figcaption>6. Cadastro de produto</figcaption>
+<div class="ph"><div class="top">Novo produto</div>
+<div class="body">
+<div class="up">Toque para<br>adicionar a foto</div>
+<label for="pn">Nome do peixe</label><input id="pn" class="in" placeholder="Ex.: Tambaqui">
+<label for="pp">Preço por kg (R$)</label><input id="pp" class="in" inputmode="decimal" placeholder="38,90">
+<label for="pd">Data da pesca</label><input id="pd" class="in" type="date">
+<div class="sw"><span>Disponível</span><div class="seg" id="disp"><button class="on">Sim</button><button>Não</button></div></div>
+</div>
+<div class="foot"><button class="btn">Salvar produto</button></div></div></figure>
+
+</main>
+<script>
+var R=function(v){return 'R$ '+v.toFixed(2).replace('.',',')};
+var cart=[{n:'Tambaqui',p:38.9,q:1.5,c:''},{n:'Camarão',p:62,q:0.5,c:'b'}];
+var STEPS=['Recebido','Em preparo','Saiu para entrega','Entregue'];
+var orders=[{id:1042,who:'Ana, Centro',it:'Tambaqui 1,5 kg + Camarão 0,5 kg',s:0},{id:1043,who:'Bruno, Cidade Nova',it:'Pirarucu 2 kg',s:1},{id:1044,who:'Carla, Adrianópolis',it:'Matrinxã 1 kg',s:2}];
+function sub(){return cart.reduce(function(a,i){return a+i.p*i.q},0)}
+function fee(){return modo===0?parseFloat(document.getElementById('zona').value):0}
+var modo=0;
+function drawCart(){
+  document.getElementById('itens').innerHTML=cart.map(function(i,k){
+    return '<div class="card"><div class="th '+i.c+'">'+i.n.slice(0,3)+'</div><div class="grow"><div class="nm">'+i.n+'</div><div class="mu">'+R(i.p)+'/kg</div><div class="q"><button data-k="'+k+'" data-d="-1" aria-label="Diminuir">−</button><b>'+String(i.q).replace('.',',')+' kg</b><button data-k="'+k+'" data-d="1" aria-label="Aumentar">+</button></div></div><div class="pr">'+R(i.p*i.q)+'</div></div>'}).join('');
+  var s=sub();
+  document.getElementById('sub1').textContent=R(s);
+  document.getElementById('sub2').textContent=R(s);
+  document.getElementById('taxa').textContent=modo===0?R(fee()):'Grátis';
+  document.getElementById('tot').textContent=R(s+fee());
+}
+document.getElementById('itens').addEventListener('click',function(e){
+  var b=e.target.closest('button');if(!b)return;
+  var i=cart[+b.dataset.k];i.q=Math.max(0.5,i.q+0.5*(+b.dataset.d));drawCart();
+});
+function drawStatus(){
+  var s=orders[0].s;
+  document.getElementById('tl').innerHTML=STEPS.map(function(t,k){
+    var c=k<s||s===3?'done':k===s?'now':'';
+    return '<li class="'+c+'">'+t+(k===s&&s<3?'<small>Etapa atual</small>':'')+'</li>'}).join('');
+}
+function drawOrders(){
+  document.getElementById('ped').innerHTML=orders.map(function(o,k){
+    var last=o.s===3;
+    return '<div class="card" style="display:block"><div style="display:flex;justify-content:space-between"><span class="nm">#'+o.id+' · '+o.who+'</span></div><div class="mu">'+o.it+'</div><div style="margin-top:6px"><span class="pill">'+STEPS[o.s]+'</span></div><button class="sm" data-k="'+k+'"'+(last?' disabled':'')+'>'+(last?'Entregue ✓':'Mudar para: '+STEPS[o.s+1])+'</button></div>'}).join('');
+}
+document.getElementById('ped').addEventListener('click',function(e){
+  var b=e.target.closest('button');if(!b||b.disabled)return;
+  orders[+b.dataset.k].s++;drawOrders();drawStatus();
+});
+function seg(id,fn){
+  var el=document.getElementById(id);
+  el.addEventListener('click',function(e){
+    var b=e.target.closest('button');if(!b)return;
+    var all=[].slice.call(el.children);all.forEach(function(x){x.classList.remove('on')});
+    b.classList.add('on');fn(all.indexOf(b));
+  });
+}
+seg('perfil',function(i){
+  document.getElementById('dica').textContent=i?'Você vai anunciar seu pescado e receber pedidos.':'Você vai comprar peixe fresco de vendedores de Manaus.';
+  document.getElementById('d').placeholder=i?'CPF ou CNPJ':'000.000.000-00';
+});
+seg('modo',function(i){
+  modo=i;
+  document.getElementById('bEnt').style.display=i?'none':'block';
+  document.getElementById('bRet').style.display=i?'block':'none';
+  drawCart();
+});
+seg('disp',function(){});
+document.getElementById('zona').addEventListener('change',drawCart);
+document.getElementById('conf').addEventListener('click',function(){document.getElementById('okp').style.display='block'});
+drawCart();drawStatus();drawOrders();
+</script>
+</body>
+</html>
