@@ -4,11 +4,15 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import com.example.myapplication.data.banco.ArmazenamentoEmArquivo
+import com.example.myapplication.data.banco.CaisBanco
 import com.example.myapplication.ui.CaisApp
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // guarda contas, pedidos e quem está logado no celular
+        CaisBanco.iniciar(ArmazenamentoEmArquivo(filesDir))
         enableEdgeToEdge()
         setContent {
             // CaisApp já aplica o tema de cores do Cais (sempre claro).

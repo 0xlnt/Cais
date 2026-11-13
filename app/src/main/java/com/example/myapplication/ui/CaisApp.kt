@@ -17,6 +17,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -85,6 +86,15 @@ fun CaisApp(vm: CaisViewModel = viewModel()) {
     val rota = entrada?.destination?.route
     val abas = if (vm.usuario?.ehVendedor == true) abasVendedor else abasCliente
 
+    // quem já estava logado ao abrir o app vai direto para a tela dele
+    val inicio = remember {
+        when {
+            vm.usuario == null -> Rotas.LOGIN
+            vm.usuario?.ehVendedor == true -> Rotas.PAINEL
+            else -> Rotas.HOME
+        }
+    }
+
     fun voltarParaLogin() {
         nav.navigate(Rotas.LOGIN) {
             popUpTo(nav.graph.id) { inclusive = true }
@@ -119,7 +129,7 @@ fun CaisApp(vm: CaisViewModel = viewModel()) {
         ) { interno ->
             NavHost(
                 navController = nav,
-                startDestination = Rotas.LOGIN,
+                startDestination = inicio,
                 modifier = Modifier.padding(interno)
             ) {
                 composable(Rotas.LOGIN) {

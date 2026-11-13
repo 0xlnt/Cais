@@ -8,6 +8,7 @@ import androidx.lifecycle.ViewModel
 import com.example.myapplication.data.Categoria
 import com.example.myapplication.data.FiltroRapido
 import com.example.myapplication.data.ItemCarrinho
+import com.example.myapplication.data.banco.Armazenamento
 import com.example.myapplication.data.banco.CaisBanco
 import com.example.myapplication.data.banco.CaisRepository
 import com.example.myapplication.data.banco.ItemDeCompra
@@ -27,13 +28,17 @@ import com.example.myapplication.data.reais
 
 const val PRECO_LIMITE = 100f
 
+/** Arquivo onde fica guardado quem está logado, para o app abrir já na conta. */
+private const val ARQUIVO_SESSAO = "sessao.txt"
+
 /**
  * Guarda todo o estado do app (login, catálogo, filtros, carrinho, pedidos).
  * Os dados vêm do [CaisRepository] (hoje o banco falso). As funções que podem falhar
  * devolvem uma mensagem de erro (String) ou null se deu certo.
  */
 class CaisViewModel(
-    private val repo: CaisRepository = CaisBanco.repositorio
+    private val repo: CaisRepository = CaisBanco.repositorio,
+    private val armazenamento: Armazenamento? = CaisBanco.armazenamento
 ) : ViewModel() {
 
     // ---------- dados (cópias para as telas; a fonte é o banco) ----------
@@ -76,6 +81,7 @@ class CaisViewModel(
     private fun iniciarSessao(row: UsuarioRow) {
         usuarioRow = row
         usuario = row.paraUi(repo)
+        armazenamento?.gravar(ARQUIVO_SESSAO, row.id.toString())
         // carrinho feito antes do login vai para o banco; se estava vazio, volta o que ficou salvo
         if (carrinho.isNotEmpty()) {
             repo.salvarCarrinho(row.id, carrinho.map { ItemDeCompra(it.produto.id, it.kg) })
@@ -119,6 +125,7 @@ class CaisViewModel(
         }
         usuarioRow = null
         usuario = null
+        armazenamento?.apagar(ARQUIVO_SESSAO)
         carrinho.clear()
         limparFiltros()
     }
@@ -297,5 +304,12 @@ class CaisViewModel(
         if (resultado is Resultado.Erro) return resultado.mensagem
         recarregarProdutos()
         return null
+    }
+
+    // Fica no fim da classe de propósito: só roda depois de todas as propriedades existirem.
+    init {
+        val id = armazenamento?.ler(ARQUIVO_SESSAO)?.trim()?.toIntOrNull()
+        val salvo = id?.let { repo.usuarioPorId(it) }
+        if (salvo != null) iniciarSessao(salvo) else armazenamento?.apagar(ARQUIVO_SESSAO)
     }
 }
