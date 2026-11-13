@@ -8,7 +8,11 @@ import java.util.Locale
  * "Banco de dados falso": cada tabela é uma lista em memória.
  * Fechou o app, os dados voltam ao início (iguais ao de [DadosIniciais]).
  */
-class BancoFalso(comDadosIniciais: Boolean = true) : CaisRepository {
+class BancoFalso(
+    comDadosIniciais: Boolean = true,
+    /** Se tiver, o banco lê daqui ao abrir e grava aqui a cada mudança. */
+    private val armazenamento: Armazenamento? = null
+) : CaisRepository {
 
     private val usuarios = mutableListOf<UsuarioRow>()
     private val enderecos = mutableListOf<EnderecoRow>()
@@ -21,7 +25,79 @@ class BancoFalso(comDadosIniciais: Boolean = true) : CaisRepository {
     private val avaliacoes = mutableListOf<AvaliacaoRow>()
 
     init {
-        if (comDadosIniciais) DadosIniciais.preencher(this)
+        val salvo = armazenamento?.ler(ARQUIVO_DO_BANCO)
+        val carregou = salvo != null && try {
+            importar(salvo)
+            true
+        } catch (e: Exception) {
+            limparTudo() // arquivo estragado: começa de novo
+            false
+        }
+        if (!carregou && comDadosIniciais) {
+            DadosIniciais.preencher(this)
+            salvar()
+        }
+    }
+
+    // ---------- guardar e ler do arquivo ----------
+    private fun salvar() {
+        armazenamento?.gravar(ARQUIVO_DO_BANCO, exportar())
+    }
+
+    private fun limparTudo() {
+        usuarios.clear(); enderecos.clear(); vendedores.clear(); categorias.clear()
+        produtos.clear(); carrinhoItens.clear(); pedidos.clear(); pedidoItens.clear(); avaliacoes.clear()
+    }
+
+    private fun exportar(): String = buildString {
+        append("cais-banco v1\n")
+        usuarios.forEach {
+            append(linhaDoArquivo("usuario", it.id, it.nome, it.email, it.senhaHash, it.telefone, it.tipo, it.criadoEm)).append('\n')
+        }
+        enderecos.forEach {
+            append(linhaDoArquivo("endereco", it.id, it.usuarioId, it.rua, it.numero, it.bairro, it.cidade, it.complemento)).append('\n')
+        }
+        vendedores.forEach {
+            append(linhaDoArquivo("vendedor", it.id, it.usuarioId, it.nomeLoja, it.descricao, it.foto, it.avaliacaoMedia, it.vendeParaEmpresas)).append('\n')
+        }
+        categorias.forEach { append(linhaDoArquivo("categoria", it.id, it.nome)).append('\n') }
+        produtos.forEach {
+            append(linhaDoArquivo("produto", it.id, it.vendedorId, it.categoriaId, it.nome, it.descricao, it.precoKg, it.foto, it.dataPesca, it.disponivel, it.ofertaDoDia)).append('\n')
+        }
+        carrinhoItens.forEach {
+            append(linhaDoArquivo("carrinho_item", it.id, it.usuarioId, it.produtoId, it.quantidadeKg)).append('\n')
+        }
+        pedidos.forEach {
+            append(linhaDoArquivo("pedido", it.id, it.clienteId, it.vendedorId, it.enderecoId, it.tipoEntrega, it.formaPagamento, it.subtotal, it.frete, it.total, it.status, it.criadoEm)).append('\n')
+        }
+        pedidoItens.forEach {
+            append(linhaDoArquivo("pedido_item", it.id, it.pedidoId, it.produtoId, it.quantidadeKg, it.precoUnitario)).append('\n')
+        }
+        avaliacoes.forEach {
+            append(linhaDoArquivo("avaliacao", it.id, it.pedidoId, it.nota, it.comentario)).append('\n')
+        }
+    }
+
+    private fun importar(texto: String) {
+        limparTudo()
+        val linhas = texto.split("\n").filter { it.isNotEmpty() }
+        require(linhas.firstOrNull() == "cais-banco v1") { "formato desconhecido" }
+        for (linha in linhas.drop(1)) {
+            val partes = linha.split("\t")
+            val c = CamposLidos(partes.drop(1).map { desescapar(it) })
+            when (partes[0]) {
+                "usuario" -> usuarios.add(UsuarioRow(c.int(0), c.texto(1), c.texto(2), c.texto(3), c.texto(4), c.texto(5), c.long(6)))
+                "endereco" -> enderecos.add(EnderecoRow(c.int(0), c.int(1), c.texto(2), c.texto(3), c.texto(4), c.texto(5), c.textoOuNulo(6)))
+                "vendedor" -> vendedores.add(VendedorRow(c.int(0), c.int(1), c.texto(2), c.texto(3), c.textoOuNulo(4), c.double(5), c.booleano(6)))
+                "categoria" -> categorias.add(CategoriaRow(c.int(0), c.texto(1)))
+                "produto" -> produtos.add(ProdutoRow(c.int(0), c.int(1), c.int(2), c.texto(3), c.texto(4), c.double(5), c.textoOuNulo(6), c.texto(7), c.booleano(8), c.booleano(9)))
+                "carrinho_item" -> carrinhoItens.add(CarrinhoItemRow(c.int(0), c.int(1), c.int(2), c.double(3)))
+                "pedido" -> pedidos.add(PedidoRow(c.int(0), c.int(1), c.int(2), c.intOuNulo(3), c.texto(4), c.texto(5), c.double(6), c.double(7), c.double(8), c.texto(9), c.long(10)))
+                "pedido_item" -> pedidoItens.add(PedidoItemRow(c.int(0), c.int(1), c.int(2), c.double(3), c.double(4)))
+                "avaliacao" -> avaliacoes.add(AvaliacaoRow(c.int(0), c.int(1), c.int(2), c.textoOuNulo(3)))
+                else -> error("tabela desconhecida: ${partes[0]}")
+            }
+        }
     }
 
     // ---------- usado só pelos dados iniciais ----------
@@ -61,6 +137,7 @@ class BancoFalso(comDadosIniciais: Boolean = true) : CaisRepository {
             criadoEm = System.currentTimeMillis()
         )
         usuarios.add(novo)
+        salvar()
         return Resultado.Ok(novo)
     }
 
@@ -71,6 +148,7 @@ class BancoFalso(comDadosIniciais: Boolean = true) : CaisRepository {
         enderecos.removeAll { it.usuarioId == usuarioId }
         carrinhoItens.removeAll { it.usuarioId == usuarioId }
         // pedidos antigos ficam guardados (histórico do vendedor)
+        salvar()
     }
 
     // ---------- endereco ----------
@@ -95,6 +173,7 @@ class BancoFalso(comDadosIniciais: Boolean = true) : CaisRepository {
             complemento = complemento?.trim()?.ifEmpty { null }
         )
         enderecos.add(novo)
+        salvar()
         return novo
     }
 
@@ -116,6 +195,7 @@ class BancoFalso(comDadosIniciais: Boolean = true) : CaisRepository {
             descricao = descricao.trim()
         )
         vendedores.add(novo)
+        salvar()
         return novo
     }
 
@@ -154,12 +234,16 @@ class BancoFalso(comDadosIniciais: Boolean = true) : CaisRepository {
             disponivel = disponivel
         )
         produtos.add(novo)
+        salvar()
         return Resultado.Ok(novo)
     }
 
     override fun mudarDisponibilidade(produtoId: Int, disponivel: Boolean) {
         val i = produtos.indexOfFirst { it.id == produtoId }
-        if (i >= 0) produtos[i] = produtos[i].copy(disponivel = disponivel)
+        if (i >= 0) {
+            produtos[i] = produtos[i].copy(disponivel = disponivel)
+            salvar()
+        }
     }
 
     // ---------- carrinho_item ----------
@@ -173,6 +257,7 @@ class BancoFalso(comDadosIniciais: Boolean = true) : CaisRepository {
             id += 1
             carrinhoItens.add(CarrinhoItemRow(id, usuarioId, it.produtoId, it.quantidadeKg))
         }
+        salvar()
     }
 
     // ---------- pedido / pedido_item ----------
@@ -227,6 +312,7 @@ class BancoFalso(comDadosIniciais: Boolean = true) : CaisRepository {
         }
 
         carrinhoItens.removeAll { it.usuarioId == clienteId }
+        salvar()
         return Resultado.Ok(criados)
     }
 
@@ -248,6 +334,7 @@ class BancoFalso(comDadosIniciais: Boolean = true) : CaisRepository {
         if (i < 0) return null
         val proximo = StatusPedido.proximo(pedidos[i].status) ?: return null
         pedidos[i] = pedidos[i].copy(status = proximo)
+        salvar()
         return pedidos[i]
     }
 
@@ -266,6 +353,7 @@ class BancoFalso(comDadosIniciais: Boolean = true) : CaisRepository {
         )
         avaliacoes.add(nova)
         recalcularMediaDoVendedor(pedido.vendedorId)
+        salvar()
         return Resultado.Ok(nova)
     }
 
@@ -282,9 +370,22 @@ class BancoFalso(comDadosIniciais: Boolean = true) : CaisRepository {
     }
 }
 
-/** Banco único do app (os dados ficam vivos enquanto o app estiver aberto). */
+private const val ARQUIVO_DO_BANCO = "banco.txt"
+
+/** Banco único do app. Chame [iniciar] uma vez, na MainActivity, para os dados ficarem guardados no celular. */
 object CaisBanco {
-    val repositorio: CaisRepository by lazy { BancoFalso() }
+    var armazenamento: Armazenamento? = null
+        private set
+    private var banco: CaisRepository? = null
+
+    fun iniciar(armazenamento: Armazenamento) {
+        if (banco != null) return
+        this.armazenamento = armazenamento
+        banco = BancoFalso(armazenamento = armazenamento)
+    }
+
+    val repositorio: CaisRepository
+        get() = banco ?: BancoFalso().also { banco = it }
 }
 
 /** "2026-11-13" com [diasAtras] dias antes de hoje. */
