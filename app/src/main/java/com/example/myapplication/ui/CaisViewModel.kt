@@ -8,7 +8,16 @@ import androidx.lifecycle.ViewModel
 import com.example.myapplication.data.Categoria
 import com.example.myapplication.data.FiltroRapido
 import com.example.myapplication.data.ItemCarrinho
-import com.example.myapplication.data.MockData
+import com.example.myapplication.data.banco.CaisBanco
+import com.example.myapplication.data.banco.CaisRepository
+import com.example.myapplication.data.banco.ItemDeCompra
+import com.example.myapplication.data.banco.Resultado
+import com.example.myapplication.data.banco.TipoEntrega
+import com.example.myapplication.data.banco.TipoUsuario
+import com.example.myapplication.data.banco.UsuarioRow
+import com.example.myapplication.data.banco.categoriaIdDe
+import com.example.myapplication.data.banco.dataBrParaIso
+import com.example.myapplication.data.banco.paraUi
 import com.example.myapplication.data.Pedido
 import com.example.myapplication.data.Produto
 import com.example.myapplication.data.Usuario
@@ -20,61 +29,105 @@ const val PRECO_LIMITE = 100f
 
 /**
  * Guarda todo o estado do app (login, catálogo, filtros, carrinho, pedidos).
- * As funções que podem falhar devolvem uma mensagem de erro (String) ou null se deu certo.
+ * Os dados vêm do [CaisRepository] (hoje o banco falso). As funções que podem falhar
+ * devolvem uma mensagem de erro (String) ou null se deu certo.
  */
-class CaisViewModel : ViewModel() {
+class CaisViewModel(
+    private val repo: CaisRepository = CaisBanco.repositorio
+) : ViewModel() {
 
-    // ---------- dados ----------
-    private val usuarios = mutableListOf<Usuario>().apply { addAll(MockData.usuarios) }
-    val vendedores = mutableStateListOf<Vendedor>().apply { addAll(MockData.vendedores) }
-    val produtos = mutableStateListOf<Produto>().apply { addAll(MockData.produtos) }
-    val pedidos = mutableStateListOf<Pedido>().apply { addAll(MockData.pedidos) }
+    // ---------- dados (cópias para as telas; a fonte é o banco) ----------
+    val vendedores = mutableStateListOf<Vendedor>()
+    val produtos = mutableStateListOf<Produto>()
+    private val pedidos = mutableStateListOf<Pedido>()
+
+    /** O carrinho fica no celular; só vai para o banco depois do login (decisão da equipe). */
     val carrinho = mutableStateListOf<ItemCarrinho>()
     val favoritos = mutableStateListOf<Int>()
 
+    init {
+        recarregarVendedores()
+        recarregarProdutos()
+        recarregarPedidos()
+    }
+
+    private fun recarregarVendedores() {
+        vendedores.clear()
+        vendedores.addAll(repo.listarVendedores().map { it.paraUi(repo) })
+    }
+
+    private fun recarregarProdutos() {
+        produtos.clear()
+        produtos.addAll(repo.listarProdutos().map { it.paraUi(repo) })
+    }
+
+    private fun recarregarPedidos() {
+        pedidos.clear()
+        // do mais novo para o mais antigo
+        pedidos.addAll(repo.listarPedidosRecentes().map { it.paraUi(repo) })
+    }
+
     // ---------- sessão ----------
+    private var usuarioRow: UsuarioRow? = null
+
     var usuario by mutableStateOf<Usuario?>(null)
         private set
 
-    fun entrar(email: String, senha: String): String? {
-        val encontrado = usuarios.firstOrNull {
-            it.email.equals(email.trim(), ignoreCase = true) && it.senha == senha
-        } ?: return "E-mail ou senha incorretos."
-        usuario = encontrado
+    private fun iniciarSessao(row: UsuarioRow) {
+        usuarioRow = row
+        usuario = row.paraUi(repo)
+        // carrinho feito antes do login vai para o banco; se estava vazio, volta o que ficou salvo
+        if (carrinho.isNotEmpty()) {
+            repo.salvarCarrinho(row.id, carrinho.map { ItemDeCompra(it.produto.id, it.kg) })
+        } else {
+            carrinho.addAll(repo.carrinhoDoUsuario(row.id).mapNotNull {
+                ItemDeCompra(it.produtoId, it.quantidadeKg).paraUi(repo)
+            })
+        }
         limparFiltros()
+    }
+
+    fun entrar(email: String, senha: String): String? {
+        val encontrado = repo.autenticar(email, senha) ?: return "E-mail ou senha incorretos."
+        iniciarSessao(encontrado)
         return null
     }
 
+    /** [doc] (CPF/CNPJ) ainda é pedido na tela, mas a tabela usuario não tem esse campo. */
     fun cadastrar(nome: String, doc: String, email: String, senha: String, vendedor: Boolean): String? {
         if (nome.isBlank()) return "Digite seu nome."
         if (doc.isBlank()) return "Digite seu CPF ou CNPJ."
         if (!email.contains("@") || !email.contains(".")) return "Digite um e-mail válido."
         if (senha.length < 6) return "A senha precisa ter pelo menos 6 caracteres."
-        if (usuarios.any { it.email.equals(email.trim(), ignoreCase = true) }) {
-            return "Esse e-mail já tem conta."
+
+        val tipo = if (vendedor) TipoUsuario.VENDEDOR else TipoUsuario.CLIENTE
+        val criado = when (val r = repo.criarUsuario(nome, email, senha, "", tipo)) {
+            is Resultado.Erro -> return r.mensagem
+            is Resultado.Ok -> r.valor
         }
-        var vendedorId: Int? = null
         if (vendedor) {
-            val novoId = (vendedores.maxOfOrNull { it.id } ?: 0) + 1
-            vendedores.add(Vendedor(novoId, nome.trim(), "Vendedor no Cais", "Centro", 0.0))
-            vendedorId = novoId
+            repo.criarVendedor(criado.id, nome.trim(), "Vendedor no Cais")
+            recarregarVendedores()
         }
-        val novo = Usuario(nome.trim(), doc.trim(), email.trim(), senha, vendedorId)
-        usuarios.add(novo)
-        usuario = novo
-        limparFiltros()
+        iniciarSessao(criado)
         return null
     }
 
     fun sair() {
+        usuarioRow?.let { row ->
+            repo.salvarCarrinho(row.id, carrinho.map { ItemDeCompra(it.produto.id, it.kg) })
+        }
+        usuarioRow = null
         usuario = null
         carrinho.clear()
         limparFiltros()
     }
 
     fun excluirConta() {
-        usuario?.let { usuarios.remove(it) }
+        usuarioRow?.let { repo.excluirUsuario(it.id) }
+        carrinho.clear() // não salva o carrinho de uma conta que acabou de ser excluída
         sair()
+        recarregarVendedores()
     }
 
     // ---------- busca e filtros ----------
@@ -172,7 +225,7 @@ class CaisViewModel : ViewModel() {
         get() = pedidos.filter { it.vendedorId == usuario?.vendedorId }
 
     fun confirmarPedido(entrega: Boolean, zona: Zona, destino: String, pagamento: String): String? {
-        val u = usuario ?: return "Entre na sua conta."
+        val u = usuarioRow ?: return "Entre na sua conta."
         if (carrinho.isEmpty()) return "Seu carrinho está vazio."
         if (entrega) {
             if (destino.isBlank()) return "Digite o endereço de entrega."
@@ -180,30 +233,33 @@ class CaisViewModel : ViewModel() {
                 return "Pedido mínimo para ${zona.nome}: ${zona.pedidoMinimo.reais()}."
             }
         }
-        val novoId = (pedidos.maxOfOrNull { it.id } ?: 1000) + 1
-        pedidos.add(
-            0,
-            Pedido(
-                id = novoId,
-                clienteEmail = u.email,
-                clienteNome = u.nome,
-                vendedorId = carrinho.first().produto.vendedorId,
-                itens = carrinho.toList(),
-                entrega = entrega,
-                destino = destino,
-                taxa = if (entrega) zona.taxa else 0.0,
-                pagamento = pagamento
-            )
+
+        // a tela tem um campo só ("Rua das Palmeiras, 120 – Centro"): separa rua e número
+        val enderecoId = if (entrega) {
+            val digitado = destino.substringBefore(" – ")
+            val rua = digitado.substringBeforeLast(",").trim()
+            val numero = if (digitado.contains(",")) digitado.substringAfterLast(",").trim() else "s/n"
+            repo.salvarEndereco(u.id, rua, numero, zona.nome, "Manaus").id
+        } else null
+
+        val resultado = repo.criarPedidos(
+            clienteId = u.id,
+            itens = carrinho.map { ItemDeCompra(it.produto.id, it.kg) },
+            tipoEntrega = if (entrega) TipoEntrega.ENTREGA else TipoEntrega.RETIRADA,
+            enderecoId = enderecoId,
+            formaPagamento = pagamento,
+            frete = zona.taxa
         )
+        if (resultado is Resultado.Erro) return resultado.mensagem
+
         carrinho.clear()
+        recarregarPedidos()
         return null
     }
 
     fun avancarStatus(pedidoId: Int) {
-        val i = pedidos.indexOfFirst { it.id == pedidoId }
-        if (i >= 0 && pedidos[i].status < 3) {
-            pedidos[i] = pedidos[i].copy(status = pedidos[i].status + 1)
-        }
+        repo.avancarStatus(pedidoId)
+        recarregarPedidos()
     }
 
     // ---------- produtos do vendedor ----------
@@ -211,8 +267,9 @@ class CaisViewModel : ViewModel() {
         get() = produtos.filter { it.vendedorId == usuario?.vendedorId }
 
     fun alternarDisponibilidade(produtoId: Int) {
-        val i = produtos.indexOfFirst { it.id == produtoId }
-        if (i >= 0) produtos[i] = produtos[i].copy(disponivel = !produtos[i].disponivel)
+        val atual = produtos.firstOrNull { it.id == produtoId } ?: return
+        repo.mudarDisponibilidade(produtoId, !atual.disponivel)
+        recarregarProdutos()
     }
 
     fun cadastrarProduto(
@@ -227,20 +284,18 @@ class CaisViewModel : ViewModel() {
         if (nome.isBlank()) return "Digite o nome do produto."
         val preco = precoTexto.trim().replace(',', '.').toDoubleOrNull()
         if (preco == null || preco <= 0.0) return "Digite um preço válido (ex.: 38,90)."
-        val novoId = (produtos.maxOfOrNull { it.id } ?: 0) + 1
-        produtos.add(
-            Produto(
-                id = novoId,
-                nome = nome.trim(),
-                tipo = tipo.trim().ifEmpty { categoria.rotulo },
-                categoria = categoria,
-                preco = preco,
-                nota = 0.0,
-                vendedorId = vendedorId,
-                dataPesca = dataPesca,
-                disponivel = disponivel
-            )
+
+        val resultado = repo.criarProduto(
+            vendedorId = vendedorId,
+            categoriaId = repo.categoriaIdDe(categoria),
+            nome = nome,
+            descricao = tipo.trim().ifEmpty { categoria.rotulo },
+            precoKg = preco,
+            dataPesca = dataBrParaIso(dataPesca),
+            disponivel = disponivel
         )
+        if (resultado is Resultado.Erro) return resultado.mensagem
+        recarregarProdutos()
         return null
     }
 }
