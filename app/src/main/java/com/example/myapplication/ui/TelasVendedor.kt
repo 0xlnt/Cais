@@ -162,7 +162,7 @@ fun PainelVendedorScreen(vm: CaisViewModel, aoNovoProduto: () -> Unit) {
 
 @Composable
 private fun CartaoPedidoVendedor(pedido: Pedido, aoAvancar: () -> Unit) {
-    val ultimo = pedido.status >= 3
+    val ultimo = pedido.status >= pedido.passos.lastIndex
     Column(
         Modifier
             .fillMaxWidth()

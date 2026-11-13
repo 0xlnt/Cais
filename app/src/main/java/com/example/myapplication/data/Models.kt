@@ -70,7 +70,7 @@ data class Usuario(
     val ehVendedor: Boolean get() = vendedorId != null
 }
 
-/** status: 0 Recebido, 1 Em preparo, 2 Saiu para entrega / Pronto para retirada, 3 Entregue */
+/** status: 0 Pedido realizado, 1 Confirmado, 2 Em preparo, 3 Saiu para entrega / Pronto para retirada, 4 Entregue */
 data class Pedido(
     val id: Int,
     val clienteEmail: String,
@@ -90,7 +90,8 @@ data class Pedido(
 }
 
 fun passosDoPedido(entrega: Boolean): List<String> = listOf(
-    "Recebido",
+    "Pedido realizado",
+    "Confirmado pelo vendedor",
     "Em preparo",
     if (entrega) "Saiu para entrega" else "Pronto para retirada",
     "Entregue"
