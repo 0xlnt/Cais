@@ -231,6 +231,8 @@ class CaisViewModel(
     val pedidosDoVendedor: List<Pedido>
         get() = pedidos.filter { it.vendedorId == usuario?.vendedorId }
 
+    fun pedidoPorId(id: Int): Pedido? = pedidos.firstOrNull { it.id == id }
+
     fun confirmarPedido(entrega: Boolean, zona: Zona, destino: String, pagamento: String): String? {
         val u = usuarioRow ?: return "Entre na sua conta."
         if (carrinho.isEmpty()) return "Seu carrinho está vazio."

@@ -121,6 +121,7 @@ fun PedidoRow.paraUi(repo: CaisRepository): Pedido {
         destino = destino,
         taxa = frete,
         pagamento = formaPagamento,
-        status = StatusPedido.ORDEM.indexOf(status).coerceAtLeast(0)
+        status = StatusPedido.ORDEM.indexOf(status).coerceAtLeast(0),
+        criadoEm = criadoEm
     )
 }

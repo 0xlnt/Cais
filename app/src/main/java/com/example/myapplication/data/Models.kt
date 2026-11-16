@@ -81,7 +81,9 @@ data class Pedido(
     val destino: String,
     val taxa: Double,
     val pagamento: String,
-    val status: Int = 0
+    val status: Int = 0,
+    /** quando o pedido foi feito (milissegundos); usado na nota fiscal */
+    val criadoEm: Long = 0L
 ) {
     val subtotal: Double get() = itens.sumOf { it.subtotal }
     val total: Double get() = subtotal + taxa
