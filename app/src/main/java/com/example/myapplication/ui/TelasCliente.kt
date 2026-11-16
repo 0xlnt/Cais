@@ -866,7 +866,7 @@ fun CheckoutScreen(
 // =====================================================================
 
 @Composable
-fun PedidosScreen(vm: CaisViewModel, aoVerPeixes: () -> Unit) {
+fun PedidosScreen(vm: CaisViewModel, aoVerPeixes: () -> Unit, aoVerNota: (Int) -> Unit) {
     val lista = vm.meusPedidos
     Column(
         Modifier
@@ -914,70 +914,20 @@ fun PedidosScreen(vm: CaisViewModel, aoVerPeixes: () -> Unit) {
                                 Text("Total (${pedido.pagamento})", modifier = Modifier.weight(1f), color = Muted)
                                 Text(pedido.total.reais(), fontWeight = FontWeight.ExtraBold)
                             }
+                            Spacer(Modifier.height(6.dp))
+                            Text(
+                                "Nota fiscal  ›",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Navy,
+                                modifier = Modifier
+                                    .clickable { aoVerNota(pedido.id) }
+                                    .padding(vertical = 4.dp)
+                            )
                         }
                     }
                 }
             }
         }
-    }
-}
-
-// =====================================================================
-// PERFIL
-// =====================================================================
-
-@Composable
-fun PerfilScreen(vm: CaisViewModel, aoSair: () -> Unit) {
-    val u = vm.usuario ?: return
-    var confirmarExclusao by remember { mutableStateOf(false) }
-
-    Column(
-        Modifier
-            .fillMaxSize()
-            .statusBarsPadding()
-            .padding(20.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(
-            "Perfil",
-            fontSize = 22.sp,
-            fontWeight = FontWeight.ExtraBold,
-            modifier = Modifier.fillMaxWidth()
-        )
-        Spacer(Modifier.height(24.dp))
-        Avatar(u.nome, 84.dp)
-        Spacer(Modifier.height(12.dp))
-        Text(u.nome, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold)
-        Text(u.email, fontSize = 14.sp, color = Muted)
-        Spacer(Modifier.height(8.dp))
-        Pilula(if (u.ehVendedor) "Conta de vendedor" else "Conta de cliente")
-        Spacer(Modifier.height(32.dp))
-        BotaoPrimario("Sair") {
-            vm.sair()
-            aoSair()
-        }
-        Spacer(Modifier.height(12.dp))
-        TextButton(onClick = { confirmarExclusao = true }) {
-            Text("Excluir minha conta", color = Perigo, fontWeight = FontWeight.SemiBold)
-        }
-    }
-
-    if (confirmarExclusao) {
-        AlertDialog(
-            onDismissRequest = { confirmarExclusao = false },
-            containerColor = Color.White,
-            title = { Text("Excluir conta?", fontWeight = FontWeight.ExtraBold) },
-            text = { Text("Seus dados de acesso serão apagados. Essa ação não pode ser desfeita.") },
-            confirmButton = {
-                TextButton(onClick = {
-                    confirmarExclusao = false
-                    vm.excluirConta()
-                    aoSair()
-                }) { Text("Excluir", color = Perigo, fontWeight = FontWeight.Bold) }
-            },
-            dismissButton = {
-                TextButton(onClick = { confirmarExclusao = false }) { Text("Cancelar", color = Muted) }
-            }
-        )
     }
 }

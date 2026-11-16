@@ -42,8 +42,12 @@ object Rotas {
     const val CHECKOUT = "checkout"
     const val PAINEL = "painel"
     const val NOVO_PRODUTO = "novoProduto"
+    const val NOTA = "nota/{id}"
+    const val DANFE = "danfe/{id}/{mm}"
 
     fun produto(id: Int) = "produto/$id"
+    fun nota(id: Int) = "nota/$id"
+    fun danfe(id: Int, mm: Int) = "danfe/$id/$mm"
 }
 
 private data class Aba(val rota: String, val rotulo: String, val icone: ImageVector)
@@ -192,11 +196,51 @@ fun CaisApp(vm: CaisViewModel = viewModel()) {
                 }
 
                 composable(Rotas.PEDIDOS) {
-                    PedidosScreen(vm = vm, aoVerPeixes = { nav.irParaAba(Rotas.BUSCA) })
+                    PedidosScreen(
+                        vm = vm,
+                        aoVerPeixes = { nav.irParaAba(Rotas.BUSCA) },
+                        aoVerNota = { nav.navigate(Rotas.nota(it)) }
+                    )
                 }
 
                 composable(Rotas.PERFIL) {
-                    PerfilScreen(vm = vm, aoSair = { voltarParaLogin() })
+                    PerfilScreen(
+                        vm = vm,
+                        aoSair = { voltarParaLogin() },
+                        aoPedidos = { nav.irParaAba(Rotas.PEDIDOS) },
+                        aoPainel = { nav.irParaAba(Rotas.PAINEL) }
+                    )
+                }
+
+                composable(
+                    Rotas.NOTA,
+                    arguments = listOf(navArgument("id") { type = NavType.IntType })
+                ) { entradaNota ->
+                    val pedido = vm.pedidoPorId(entradaNota.arguments?.getInt("id") ?: 0)
+                    if (pedido != null) {
+                        NotaFiscalScreen(
+                            dados = pedido.paraNota(vm.vendedorDe(pedido.vendedorId)?.nome ?: "Loja"),
+                            aoVoltar = { nav.popBackStack() },
+                            aoVerDanfe = { nav.navigate(Rotas.danfe(pedido.id, 80)) }
+                        )
+                    }
+                }
+
+                composable(
+                    Rotas.DANFE,
+                    arguments = listOf(
+                        navArgument("id") { type = NavType.IntType },
+                        navArgument("mm") { type = NavType.IntType }
+                    )
+                ) { entradaDanfe ->
+                    val pedido = vm.pedidoPorId(entradaDanfe.arguments?.getInt("id") ?: 0)
+                    if (pedido != null) {
+                        DanfeScreen(
+                            dados = pedido.paraNota(vm.vendedorDe(pedido.vendedorId)?.nome ?: "Loja"),
+                            larguraInicial = entradaDanfe.arguments?.getInt("mm") ?: 80,
+                            aoVoltar = { nav.popBackStack() }
+                        )
+                    }
                 }
 
                 composable(Rotas.PAINEL) {
