@@ -2,6 +2,7 @@ package com.example.myapplication.ui
 
 import android.content.Intent
 import android.widget.Toast
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -52,6 +53,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -647,6 +649,7 @@ fun CarrinhoScreen(
     aoVerPeixes: () -> Unit,
     aoContinuar: () -> Unit
 ) {
+    LaunchedEffect(Unit) { vm.removerIndisponiveis()}
     Column(
         Modifier
             .fillMaxSize()
@@ -654,6 +657,20 @@ fun CarrinhoScreen(
     ) {
         TopoComVoltar("Carrinho", aoVoltar)
 
+        vm.avisosCarrinho.forEach {
+            aviso -> Text(
+                aviso,
+                fontSize = 13.sp,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Ice)
+                    .clickable{vm.limparAvisosCarrinho()}
+                    .padding(10.dp)
+
+            )
+        }
         if (vm.carrinho.isEmpty()) {
             Column(Modifier.weight(1f)) {
                 EstadoVazio(

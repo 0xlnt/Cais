@@ -30,6 +30,7 @@ const val PRECO_LIMITE = 100f
 
 /** Arquivo onde fica guardado quem está logado, para o app abrir já na conta. */
 private const val ARQUIVO_SESSAO = "sessao.txt"
+private const val ARQUIVO_CARRINHO =  "Carrinho_visitante.txt"
 
 /**
  * Guarda todo o estado do app (login, catálogo, filtros, carrinho, pedidos).
@@ -192,6 +193,18 @@ class CaisViewModel(
     // ---------- carrinho ----------
     val subtotal: Double
         get() = carrinho.sumOf { it.subtotal }
+    /** Aviso de itens que saíram do carrinho ("Produto não está mais disponivel e saiu do carrinho")*/
+    val avisosCarrinho = mutableStateListOf<String>()
+
+    /**Tira do carrinho os produtos que acabaram. Devolver true algum*/
+    fun removerIndisponiveis(): Boolean{
+        val acabaram = carrinho.filter { item -> produtos.firstOrNull(){it.id == item.produto.id} ?.disponivel != true }
+        if (acabaram.isEmpty()) return false
+        acabaram.forEach { avisosCarrinho.add("${it.produto.nome} não está mais disponivel e saiu do seu carrinho")}
+        carrinho.removeAll(acabaram)
+        return true
+    }
+    fun limparAvisosCarrinho() = avisosCarrinho.clear()
 
     /** Devolve false se o carrinho já tem itens de outro vendedor. */
     fun adicionarAoCarrinho(produto: Produto, kg: Double): Boolean {
@@ -235,6 +248,7 @@ class CaisViewModel(
 
     fun confirmarPedido(entrega: Boolean, zona: Zona, destino: String, pagamento: String): String? {
         val u = usuarioRow ?: return "Entre na sua conta."
+        if (removerIndisponiveis()) return "Um item não está mais disponivel e saiu do carrinho. Confira antes de confirmar"
         if (carrinho.isEmpty()) return "Seu carrinho está vazio."
         if (entrega) {
             if (destino.isBlank()) return "Digite o endereço de entrega."
