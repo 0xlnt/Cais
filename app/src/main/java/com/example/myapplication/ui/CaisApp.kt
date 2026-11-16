@@ -1,5 +1,6 @@
 package com.example.myapplication.ui
 
+import android.util.Log
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -92,11 +93,9 @@ fun CaisApp(vm: CaisViewModel = viewModel()) {
 
     // quem já estava logado ao abrir o app vai direto para a tela dele
     val inicio = remember {
-        when {
-            vm.usuario == null -> Rotas.LOGIN
-            vm.usuario?.ehVendedor == true -> Rotas.PAINEL
-            else -> Rotas.HOME
-        }
+        if (vm.usuario?.ehVendedor == true){
+            Rotas.PAINEL
+        } else Rotas.HOME
     }
 
     fun voltarParaLogin() {
@@ -137,9 +136,18 @@ fun CaisApp(vm: CaisViewModel = viewModel()) {
                 modifier = Modifier.padding(interno)
             ) {
                 composable(Rotas.LOGIN) {
-                    LoginScreen(vm) { ehVendedor ->
-                        nav.navigate(if (ehVendedor) Rotas.PAINEL else Rotas.HOME) {
-                            popUpTo(Rotas.LOGIN) { inclusive = true }
+                    LoginScreen(vm) {ehVendedor ->
+                        val veioDoCarrinho = nav.previousBackStackEntry?.destination?.route == Rotas.CARRINHO
+                        when{
+                            ehVendedor -> nav.navigate(Rotas.PAINEL){
+                                popUpTo(nav.graph.id){inclusive = true}
+                            }
+                            veioDoCarrinho -> nav.navigate(Rotas.CHECKOUT){
+                                popUpTo(Rotas.LOGIN) {inclusive=true}
+                            }
+                            else -> nav.navigate(Rotas.HOME){
+                                popUpTo(Rotas.LOGIN){inclusive = true}
+                            }
                         }
                     }
                 }
@@ -183,7 +191,10 @@ fun CaisApp(vm: CaisViewModel = viewModel()) {
                         vm = vm,
                         aoVoltar = { nav.popBackStack() },
                         aoVerPeixes = { nav.irParaAba(Rotas.BUSCA) },
-                        aoContinuar = { nav.navigate(Rotas.CHECKOUT) }
+                        aoContinuar = {
+                            if(vm.usuario == null) nav.navigate(Rotas.LOGIN)
+                            else nav.navigate(Rotas.CHECKOUT)
+                        }
                     )
                 }
 
@@ -204,12 +215,20 @@ fun CaisApp(vm: CaisViewModel = viewModel()) {
                 }
 
                 composable(Rotas.PERFIL) {
-                    PerfilScreen(
-                        vm = vm,
-                        aoSair = { voltarParaLogin() },
-                        aoPedidos = { nav.irParaAba(Rotas.PEDIDOS) },
-                        aoPainel = { nav.irParaAba(Rotas.PAINEL) }
-                    )
+                    if (vm.usuario == null){
+                        LoginScreen(vm) { ehVendedor ->
+                            nav.navigate(if (ehVendedor) Rotas.PAINEL else Rotas.HOME) {
+                                popUpTo (nav.graph.id) {inclusive = true}
+                            }
+                        }
+                    } else {
+                        PerfilScreen(
+                            vm = vm,
+                            aoSair = {voltarParaLogin()},
+                            aoPedidos = {nav.irParaAba(Rotas.PEDIDOS)},
+                            aoPainel = {nav.irParaAba(Rotas.PAINEL)},
+                        )
+                    }
                 }
 
                 composable(
