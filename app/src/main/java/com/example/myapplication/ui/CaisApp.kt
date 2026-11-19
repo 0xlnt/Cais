@@ -48,9 +48,10 @@ object Rotas {
     const val DADOS_PESSOAIS = "perfil/dados"
     const val ENDERECOS = "perfil/enderecos"
     const val SEGURANCA = "perfil/seguranca"
+    const val CONTA = "perfil/conta"
 
     /** Telas abertas a partir do Perfil: a barra de baixo continua com a aba Perfil marcada. */
-    val dentroDoPerfil = setOf(DADOS_PESSOAIS, ENDERECOS, SEGURANCA)
+    val dentroDoPerfil = setOf(DADOS_PESSOAIS, ENDERECOS, SEGURANCA, CONTA)
 
     fun produto(id: Int) = "produto/$id"
     fun nota(id: Int) = "nota/$id"
@@ -231,11 +232,11 @@ fun CaisApp(vm: CaisViewModel = viewModel()) {
                     } else {
                         PerfilScreen(
                             vm = vm,
-                            aoSair = {voltarParaLogin()},
                             aoPainel = {nav.irParaAba(Rotas.PAINEL)},
                             aoDadosPessoais = { nav.navigate(Rotas.DADOS_PESSOAIS) },
                             aoEnderecos = { nav.navigate(Rotas.ENDERECOS) },
-                            aoSeguranca = { nav.navigate(Rotas.SEGURANCA) }
+                            aoSeguranca = { nav.navigate(Rotas.SEGURANCA) },
+                            aoConta = { nav.navigate(Rotas.CONTA) }
                         )
                     }
                 }
@@ -246,6 +247,10 @@ fun CaisApp(vm: CaisViewModel = viewModel()) {
 
                 composable(Rotas.ENDERECOS) {
                     EnderecosScreen(vm = vm, aoVoltar = { nav.popBackStack() })
+                }
+
+                composable(Rotas.CONTA) {
+                    ContaScreen(vm = vm, aoVoltar = { nav.popBackStack() })
                 }
 
                 composable(Rotas.SEGURANCA) {

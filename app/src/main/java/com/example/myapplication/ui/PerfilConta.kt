@@ -94,6 +94,59 @@ fun DadosPessoaisConteudo(
     }
 }
 
+//----Conta (vendedor)----
+
+@Composable
+fun ContaScreen(vm: CaisViewModel, aoVoltar: () -> Unit) {
+    val u = vm.usuario ?: return
+    // O cadastro guarda um só documento: 11 dígitos é CPF, 14 é CNPJ
+    val digitos = u.doc.filter { it.isDigit() }
+    ContaConteudo(
+        email = u.email,
+        cpf = if (digitos.length == 11) u.doc else "",
+        cnpj = if (digitos.length == 14) u.doc else "",
+        telefone = vm.telefoneDoUsuario,
+        aoVoltar = aoVoltar,
+        aoSalvar = avisoEmBreve()
+    )
+}
+
+@Composable
+fun ContaConteudo(
+    email: String,
+    cpf: String,
+    cnpj: String,
+    telefone: String,
+    aoVoltar: () -> Unit,
+    aoSalvar: () -> Unit
+) {
+    var emailDigitado by rememberSaveable { mutableStateOf(email) }
+    var cpfDigitado by rememberSaveable { mutableStateOf(cpf) }
+    var cnpjDigitado by rememberSaveable { mutableStateOf(cnpj) }
+    var telefoneDigitado by rememberSaveable { mutableStateOf(telefone) }
+
+    TelaDaConta(
+        titulo = "Conta",
+        descricao = "Confira os dados de acesso e de cadastro da sua loja.",
+        aoVoltar = aoVoltar,
+        rodape = { BotaoPrimario("Salvar alterações", onClick = aoSalvar) }
+    ) {
+        CampoDaConta("E-mail", emailDigitado, { emailDigitado = it }, teclado = KeyboardType.Email)
+        CampoDaConta(
+            "CPF", cpfDigitado, { cpfDigitado = it },
+            teclado = KeyboardType.Number, dica = "000.000.000-00"
+        )
+        CampoDaConta(
+            "CNPJ", cnpjDigitado, { cnpjDigitado = it },
+            teclado = KeyboardType.Number, dica = "00.000.000/0000-00"
+        )
+        CampoDaConta(
+            "Telefone", telefoneDigitado, { telefoneDigitado = it },
+            teclado = KeyboardType.Phone, dica = "(92) 99999-9999"
+        )
+    }
+}
+
 /** Campo com o rótulo em cima. */
 @Composable
 private fun CampoDaConta(
@@ -347,6 +400,12 @@ private fun TelaDaConta(
 @Composable
 private fun PreviewDadosPessoais() {
     DadosPessoaisConteudo("Cliente Demo", "(92) 99999-1234", "cliente@cais.com", {}, {})
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFFFFFFFF, widthDp = 390, heightDp = 860)
+@Composable
+private fun PreviewConta() {
+    ContaConteudo("vendedor@cais.com", "", "", "(92) 99999-1234", {}, {})
 }
 
 @Preview(showBackground = true, backgroundColor = 0xFFFFFFFF, widthDp = 390, heightDp = 860)
