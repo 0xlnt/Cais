@@ -1,6 +1,7 @@
 package com.example.myapplication.ui
 
 import android.widget.Toast
+import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -24,6 +25,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material.icons.automirrored.outlined.Logout
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.AccountBalance
 import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
@@ -49,6 +52,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -61,11 +65,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-// =====================================================================
-// PERFIL DO CLIENTE ("Meu perfil") e PERFIL DA LOJA (vendedor)
-// Seguem os modelos do Figma. As telas "Conteudo" não dependem do ViewModel,
-// então dá para ver cada uma no Preview do Android Studio.
-// =====================================================================
+//----Perfil do cliente e da loja----
 
 private val FundoCartao = Ice
 private val VerdeClaro = Color(0xFFE3F4EA)
@@ -74,8 +74,8 @@ private val AmareloClaro = Color(0xFFFFF4D6)
 private val AmareloBorda = Color(0xFFF2DDA0)
 
 enum class ItemPerfilCliente {
-    EDITAR_DADOS, CONVERSAS, NOTIFICACOES, DADOS_PESSOAIS, ENDERECOS, AVALIACOES,
-    PAGAMENTOS, SEGURANCA, AJUDA, SAIR
+    CONVERSAS, NOTIFICACOES, DADOS_PESSOAIS, ENDERECOS, FAVORITOS, AVALIACOES,
+    PAGAMENTOS, SEGURANCA, AJUDA
 }
 
 enum class ItemPerfilLoja {
@@ -89,16 +89,15 @@ enum class ItemPerfilLoja {
 
 private enum class DialogoPerfil { NENHUM, SEGURANCA, EXCLUIR }
 
-/**
- * Tela da aba Perfil: mostra o perfil da loja se a conta é de vendedor
- * e o "Meu perfil" se é de cliente.
- */
+/** Aba Perfil: loja para vendedor, "Meu perfil" para cliente. */
 @Composable
 fun PerfilScreen(
     vm: CaisViewModel,
     aoSair: () -> Unit,
-    aoPedidos: () -> Unit,
-    aoPainel: () -> Unit
+    aoPainel: () -> Unit,
+    aoDadosPessoais: () -> Unit,
+    aoEnderecos: () -> Unit,
+    aoSeguranca: () -> Unit
 ) {
     val u = vm.usuario ?: return
     val contexto = LocalContext.current
@@ -125,12 +124,9 @@ fun PerfilScreen(
     } else {
         PerfilClienteConteudo(nome = u.nome, email = u.email) { item ->
             when (item) {
-                ItemPerfilCliente.AVALIACOES -> aoPedidos()
-                ItemPerfilCliente.SEGURANCA -> dialogo = DialogoPerfil.SEGURANCA
-                ItemPerfilCliente.SAIR -> {
-                    vm.sair()
-                    aoSair()
-                }
+                ItemPerfilCliente.DADOS_PESSOAIS -> aoDadosPessoais()
+                ItemPerfilCliente.ENDERECOS -> aoEnderecos()
+                ItemPerfilCliente.SEGURANCA -> aoSeguranca()
                 else -> emBreve()
             }
         }
@@ -143,7 +139,8 @@ fun PerfilScreen(
             title = { Text("Segurança e privacidade", fontWeight = FontWeight.ExtraBold) },
             text = { Text("Senha, privacidade e exclusão da conta.") },
             confirmButton = {
-                TextButton(onClick = { dialogo = DialogoPerfil.EXCLUIR }) {
+                // Desligado. Para ligar: troque emBreve() por dialogo = DialogoPerfil.EXCLUIR
+                TextButton(onClick = { emBreve() }) {
                     Text("Excluir minha conta", color = Perigo, fontWeight = FontWeight.Bold)
                 }
             },
@@ -154,35 +151,45 @@ fun PerfilScreen(
     }
 
     if (dialogo == DialogoPerfil.EXCLUIR) {
-        AlertDialog(
-            onDismissRequest = { dialogo = DialogoPerfil.NENHUM },
-            containerColor = Color.White,
-            title = { Text("Excluir conta?", fontWeight = FontWeight.ExtraBold) },
-            text = { Text("Seus dados de acesso serão apagados. Essa ação não pode ser desfeita.") },
-            confirmButton = {
-                TextButton(onClick = {
-                    dialogo = DialogoPerfil.NENHUM
-                    vm.excluirConta()
-                    aoSair()
-                }) { Text("Excluir", color = Perigo, fontWeight = FontWeight.Bold) }
-            },
-            dismissButton = {
-                TextButton(onClick = { dialogo = DialogoPerfil.NENHUM }) { Text("Cancelar", color = Muted) }
-            }
-        )
+        DialogoExcluirConta(aoCancelar = { dialogo = DialogoPerfil.NENHUM }) {
+            dialogo = DialogoPerfil.NENHUM
+            vm.excluirConta()
+            aoSair()
+        }
     }
 }
 
-// ---------------------------------------------------------------------
-// Meu perfil (cliente)
-// ---------------------------------------------------------------------
+/** Confirmação antes de excluir a conta. */
+@Composable
+internal fun DialogoExcluirConta(aoCancelar: () -> Unit, aoConfirmar: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = aoCancelar,
+        containerColor = Color.White,
+        title = { Text("Excluir conta?", fontWeight = FontWeight.ExtraBold) },
+        text = { Text("Seus dados de acesso serão apagados. Essa ação não pode ser desfeita.") },
+        confirmButton = {
+            TextButton(onClick = aoConfirmar) {
+                Text("Excluir", color = Perigo, fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = aoCancelar) { Text("Cancelar", color = Muted) }
+        }
+    )
+}
+
+//----Meu perfil (cliente)----
 
 @Composable
 fun PerfilClienteConteudo(
     nome: String,
     email: String,
+    contaAbertaNoInicio: Boolean = false,
     aoAbrir: (ItemPerfilCliente) -> Unit
 ) {
+    // "Minha conta" começa fechada
+    var contaAberta by rememberSaveable { mutableStateOf(contaAbertaNoInicio) }
+
     Column(
         Modifier
             .fillMaxSize()
@@ -192,9 +199,7 @@ fun PerfilClienteConteudo(
     ) {
         CabecalhoDaTela("Meu perfil")
         Spacer(Modifier.height(16.dp))
-        CabecalhoDoUsuario(nome, email, "Editar meus dados →", "Conta de cliente") {
-            aoAbrir(ItemPerfilCliente.EDITAR_DADOS)
-        }
+        CabecalhoDoUsuario(nome, email, textoEditar = null, tipoDaConta = "Conta de cliente")
 
         Spacer(Modifier.height(14.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -208,26 +213,22 @@ fun PerfilClienteConteudo(
             ) { aoAbrir(ItemPerfilCliente.NOTIFICACOES) }
         }
 
-        TituloDoGrupo("Minha conta")
-        LinhaDeMenu(Icons.Outlined.PersonOutline, "Dados pessoais", "Nome, e-mail e telefone") {
-            aoAbrir(ItemPerfilCliente.DADOS_PESSOAIS)
-        }
-        LinhaDeMenu(Icons.Outlined.LocationOn, "Meus endereços", "Locais para receber seus pedidos") {
-            aoAbrir(ItemPerfilCliente.ENDERECOS)
-        }
-        LinhaDeMenu(Icons.Outlined.StarBorder, "Minhas avaliações", "Veja ou avalie suas compras") {
-            aoAbrir(ItemPerfilCliente.AVALIACOES)
-        }
+        Spacer(Modifier.height(18.dp))
+        CartaoMinhaConta(
+            aberta = contaAberta,
+            aoAlternar = { contaAberta = !contaAberta },
+            aoAbrir = aoAbrir
+        )
 
         TituloDoGrupo("Pagamentos")
         LinhaDeMenu(Icons.Outlined.CreditCard, "Formas de pagamento", "Gerencie suas formas de pagar") {
             aoAbrir(ItemPerfilCliente.PAGAMENTOS)
         }
 
-        TituloDoGrupo("Segurança")
+        TituloDoGrupo("Configurações")
         LinhaDeMenu(
             Icons.Outlined.VerifiedUser, "Segurança e privacidade",
-            "Senha, privacidade e exclusão da conta"
+            "Senha, termos de uso e privacidade"
         ) { aoAbrir(ItemPerfilCliente.SEGURANCA) }
 
         TituloDoGrupo("Ajuda")
@@ -237,14 +238,66 @@ fun PerfilClienteConteudo(
         ) { aoAbrir(ItemPerfilCliente.AJUDA) }
 
         Spacer(Modifier.height(16.dp))
-        BotaoSairDaConta { aoAbrir(ItemPerfilCliente.SAIR) }
-        Spacer(Modifier.height(16.dp))
     }
 }
 
-// ---------------------------------------------------------------------
-// Perfil da loja (vendedor)
-// ---------------------------------------------------------------------
+/** Cartão "Minha conta", que abre e fecha. */
+@Composable
+private fun CartaoMinhaConta(
+    aberta: Boolean,
+    aoAlternar: () -> Unit,
+    aoAbrir: (ItemPerfilCliente) -> Unit
+) {
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(FundoCartao)
+            .animateContentSize()
+    ) {
+        Row(
+            Modifier
+                .fillMaxWidth()
+                .clickable(onClick = aoAlternar)
+                .padding(horizontal = 14.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(Icons.Outlined.PersonOutline, contentDescription = null, tint = Navy, modifier = Modifier.size(22.dp))
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text("Minha conta", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Navy)
+                Text("Dados pessoais, endereços e mais", fontSize = 11.sp, color = Muted)
+            }
+            Icon(
+                if (aberta) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
+                contentDescription = if (aberta) "Recolher Minha conta" else "Expandir Minha conta",
+                tint = Navy,
+                modifier = Modifier.size(22.dp)
+            )
+        }
+
+        if (aberta) {
+            DivisorDoCartao()
+            LinhaDoCartao("Dados pessoais", "Nome, telefone e e-mail") {
+                aoAbrir(ItemPerfilCliente.DADOS_PESSOAIS)
+            }
+            DivisorDoCartao()
+            LinhaDoCartao("Endereços", "Gerencie seus locais de entrega") {
+                aoAbrir(ItemPerfilCliente.ENDERECOS)
+            }
+            DivisorDoCartao()
+            LinhaDoCartao("Favoritos", "Seus produtos e vendedores salvos") {
+                aoAbrir(ItemPerfilCliente.FAVORITOS)
+            }
+            DivisorDoCartao()
+            LinhaDoCartao("Minhas avaliações", "Veja ou avalie suas compras") {
+                aoAbrir(ItemPerfilCliente.AVALIACOES)
+            }
+        }
+    }
+}
+
+//----Perfil da loja (vendedor)----
 
 @Composable
 fun PerfilLojaConteudo(
@@ -337,9 +390,7 @@ fun PerfilLojaConteudo(
     }
 }
 
-// ---------------------------------------------------------------------
-// Peças usadas nas duas telas
-// ---------------------------------------------------------------------
+//----Peças comuns----
 
 @Composable
 private fun CabecalhoDaTela(titulo: String) {
@@ -369,9 +420,9 @@ private fun CabecalhoDaTela(titulo: String) {
 private fun CabecalhoDoUsuario(
     nome: String,
     email: String,
-    textoEditar: String,
+    textoEditar: String?,
     tipoDaConta: String,
-    aoEditar: () -> Unit
+    aoEditar: () -> Unit = {}
 ) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Avatar(nome, 60.dp)
@@ -379,15 +430,17 @@ private fun CabecalhoDoUsuario(
         Column {
             Text(nome, fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = Navy)
             Text(email, fontSize = 12.sp, color = Muted)
-            Text(
-                textoEditar,
-                fontSize = 12.sp,
-                fontWeight = FontWeight.Bold,
-                color = Navy,
-                modifier = Modifier
-                    .clickable(onClick = aoEditar)
-                    .padding(top = 2.dp)
-            )
+            if (textoEditar != null) {
+                Text(
+                    textoEditar,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Navy,
+                    modifier = Modifier
+                        .clickable(onClick = aoEditar)
+                        .padding(top = 2.dp)
+                )
+            }
         }
     }
     Spacer(Modifier.height(10.dp))
@@ -467,8 +520,42 @@ private fun LinhaDeMenu(
     }
 }
 
+/** Opção dentro de um cartão agrupado. */
 @Composable
-private fun BotaoSairDaConta(onClick: () -> Unit) {
+internal fun LinhaDoCartao(titulo: String, subtitulo: String, onClick: () -> Unit) {
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(titulo, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Navy)
+            Text(subtitulo, fontSize = 11.sp, color = Muted)
+        }
+        Icon(
+            Icons.AutoMirrored.Filled.KeyboardArrowRight,
+            contentDescription = null,
+            tint = Muted,
+            modifier = Modifier.size(20.dp)
+        )
+    }
+}
+
+/** Divisor entre as opções do cartão. */
+@Composable
+internal fun DivisorDoCartao() {
+    Box(
+        Modifier
+            .fillMaxWidth()
+            .height(1.dp)
+            .background(Color.White)
+    )
+}
+
+@Composable
+internal fun BotaoSairDaConta(onClick: () -> Unit) {
     Row(
         Modifier
             .fillMaxWidth()
@@ -491,7 +578,7 @@ private fun BotaoSairDaConta(onClick: () -> Unit) {
     }
 }
 
-/** Cartão verde "Loja aberta" (fica amarelo "Loja pausada" quando o vendedor pausa os pedidos). */
+/** Status da loja: aberta (verde) ou pausada (amarelo). */
 @Composable
 private fun CartaoStatusDaLoja(
     aberta: Boolean,
@@ -569,14 +656,18 @@ private fun BotaoDoCartao(
     }
 }
 
-// ---------------------------------------------------------------------
-// Previews (Android Studio: aba Split/Design ao lado do código)
-// ---------------------------------------------------------------------
+//----Previews----
 
 @Preview(showBackground = true, backgroundColor = 0xFFFFFFFF, widthDp = 390, heightDp = 960)
 @Composable
 private fun PreviewPerfilCliente() {
     PerfilClienteConteudo("Cliente Demo", "cliente@cais.com") {}
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFFFFFFFF, widthDp = 390, heightDp = 1060)
+@Composable
+private fun PreviewPerfilClienteContaAberta() {
+    PerfilClienteConteudo("Cliente Demo", "cliente@cais.com", contaAbertaNoInicio = true) {}
 }
 
 @Preview(showBackground = true, backgroundColor = 0xFFFFFFFF, widthDp = 390, heightDp = 1500)
