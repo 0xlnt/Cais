@@ -11,6 +11,7 @@ import com.example.myapplication.data.ItemCarrinho
 import com.example.myapplication.data.banco.Armazenamento
 import com.example.myapplication.data.banco.CaisBanco
 import com.example.myapplication.data.banco.CaisRepository
+import com.example.myapplication.data.banco.EnderecoRow
 import com.example.myapplication.data.banco.ItemDeCompra
 import com.example.myapplication.data.banco.Resultado
 import com.example.myapplication.data.banco.TipoEntrega
@@ -130,6 +131,13 @@ class CaisViewModel(
         carrinho.clear()
         limparFiltros()
     }
+
+    /** Telefone e endereços ficam só na tabela; as telas de "Minha conta" leem daqui. */
+    val telefoneDoUsuario: String
+        get() = usuarioRow?.telefone ?: ""
+
+    fun meusEnderecos(): List<EnderecoRow> =
+        usuarioRow?.let { repo.enderecosDoUsuario(it.id) } ?: emptyList()
 
     fun excluirConta() {
         usuarioRow?.let { repo.excluirUsuario(it.id) }

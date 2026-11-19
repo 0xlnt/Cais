@@ -45,6 +45,12 @@ object Rotas {
     const val NOVO_PRODUTO = "novoProduto"
     const val NOTA = "nota/{id}"
     const val DANFE = "danfe/{id}/{mm}"
+    const val DADOS_PESSOAIS = "perfil/dados"
+    const val ENDERECOS = "perfil/enderecos"
+    const val SEGURANCA = "perfil/seguranca"
+
+    /** Telas abertas a partir do Perfil: a barra de baixo continua com a aba Perfil marcada. */
+    val dentroDoPerfil = setOf(DADOS_PESSOAIS, ENDERECOS, SEGURANCA)
 
     fun produto(id: Int) = "produto/$id"
     fun nota(id: Int) = "nota/$id"
@@ -89,6 +95,7 @@ fun CaisApp(vm: CaisViewModel = viewModel()) {
     val nav = rememberNavController()
     val entrada by nav.currentBackStackEntryAsState()
     val rota = entrada?.destination?.route
+    val abaAtual = if (rota in Rotas.dentroDoPerfil) Rotas.PERFIL else rota
     val abas = if (vm.usuario?.ehVendedor == true) abasVendedor else abasCliente
 
     // quem já estava logado ao abrir o app vai direto para a tela dele
@@ -109,11 +116,11 @@ fun CaisApp(vm: CaisViewModel = viewModel()) {
             containerColor = Color.White,
             contentWindowInsets = WindowInsets(0.dp, 0.dp, 0.dp, 0.dp),
             bottomBar = {
-                if (rota != null && abas.any { it.rota == rota }) {
+                if (abaAtual != null && abas.any { it.rota == abaAtual }) {
                     NavigationBar(containerColor = Color.White) {
                         abas.forEach { aba ->
                             NavigationBarItem(
-                                selected = rota == aba.rota,
+                                selected = abaAtual == aba.rota,
                                 onClick = { nav.irParaAba(aba.rota) },
                                 icon = { Icon(aba.icone, contentDescription = aba.rotulo) },
                                 label = { Text(aba.rotulo) },
@@ -225,10 +232,28 @@ fun CaisApp(vm: CaisViewModel = viewModel()) {
                         PerfilScreen(
                             vm = vm,
                             aoSair = {voltarParaLogin()},
-                            aoPedidos = {nav.irParaAba(Rotas.PEDIDOS)},
                             aoPainel = {nav.irParaAba(Rotas.PAINEL)},
+                            aoDadosPessoais = { nav.navigate(Rotas.DADOS_PESSOAIS) },
+                            aoEnderecos = { nav.navigate(Rotas.ENDERECOS) },
+                            aoSeguranca = { nav.navigate(Rotas.SEGURANCA) }
                         )
                     }
+                }
+
+                composable(Rotas.DADOS_PESSOAIS) {
+                    DadosPessoaisScreen(vm = vm, aoVoltar = { nav.popBackStack() })
+                }
+
+                composable(Rotas.ENDERECOS) {
+                    EnderecosScreen(vm = vm, aoVoltar = { nav.popBackStack() })
+                }
+
+                composable(Rotas.SEGURANCA) {
+                    SegurancaScreen(
+                        vm = vm,
+                        aoVoltar = { nav.popBackStack() },
+                        aoSair = { voltarParaLogin() }
+                    )
                 }
 
                 composable(
