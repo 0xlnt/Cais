@@ -56,7 +56,9 @@ data class ProdutoRow(
     /** data no formato "2026-11-13" */
     val dataPesca: String,
     val disponivel: Boolean = true,
-    val ofertaDoDia: Boolean = false
+    val ofertaDoDia: Boolean = false,
+    /** quanto o vendedor tem para vender, em kg */
+    val estoqueKg: Double = 0.0
 )
 
 data class CarrinhoItemRow(

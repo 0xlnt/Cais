@@ -49,9 +49,15 @@ object Rotas {
     const val ENDERECOS = "perfil/enderecos"
     const val SEGURANCA = "perfil/seguranca"
     const val CONTA = "perfil/conta"
+    const val DADOS_LOJA = "perfil/loja"
+    const val HORARIOS = "perfil/horarios"
+    const val VENDAS = "perfil/vendas"
+    const val FAVORITOS = "perfil/favoritos"
 
     /** Telas abertas a partir do Perfil: a barra de baixo continua com a aba Perfil marcada. */
-    val dentroDoPerfil = setOf(DADOS_PESSOAIS, ENDERECOS, SEGURANCA, CONTA)
+    val dentroDoPerfil = setOf(
+        DADOS_PESSOAIS, ENDERECOS, SEGURANCA, CONTA, DADOS_LOJA, HORARIOS, VENDAS, FAVORITOS
+    )
 
     fun produto(id: Int) = "produto/$id"
     fun nota(id: Int) = "nota/$id"
@@ -236,7 +242,11 @@ fun CaisApp(vm: CaisViewModel = viewModel()) {
                             aoDadosPessoais = { nav.navigate(Rotas.DADOS_PESSOAIS) },
                             aoEnderecos = { nav.navigate(Rotas.ENDERECOS) },
                             aoSeguranca = { nav.navigate(Rotas.SEGURANCA) },
-                            aoConta = { nav.navigate(Rotas.CONTA) }
+                            aoConta = { nav.navigate(Rotas.CONTA) },
+                            aoDadosLoja = { nav.navigate(Rotas.DADOS_LOJA) },
+                            aoHorarios = { nav.navigate(Rotas.HORARIOS) },
+                            aoVendas = { nav.navigate(Rotas.VENDAS) },
+                            aoFavoritos = { nav.navigate(Rotas.FAVORITOS) }
                         )
                     }
                 }
@@ -250,7 +260,31 @@ fun CaisApp(vm: CaisViewModel = viewModel()) {
                 }
 
                 composable(Rotas.CONTA) {
-                    ContaScreen(vm = vm, aoVoltar = { nav.popBackStack() })
+                    ContaScreen(
+                        vm = vm,
+                        aoVoltar = { nav.popBackStack() },
+                        aoSair = { voltarParaLogin() }
+                    )
+                }
+
+                composable(Rotas.FAVORITOS) {
+                    FavoritosScreen(
+                        vm = vm,
+                        aoVoltar = { nav.popBackStack() },
+                        aoAbrirProduto = { nav.navigate(Rotas.produto(it)) }
+                    )
+                }
+
+                composable(Rotas.DADOS_LOJA) {
+                    DadosLojaScreen(vm = vm, aoVoltar = { nav.popBackStack() })
+                }
+
+                composable(Rotas.HORARIOS) {
+                    HorariosScreen(aoVoltar = { nav.popBackStack() })
+                }
+
+                composable(Rotas.VENDAS) {
+                    VendasScreen(vm = vm, aoVoltar = { nav.popBackStack() })
                 }
 
                 composable(Rotas.SEGURANCA) {

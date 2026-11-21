@@ -48,7 +48,7 @@ import com.example.myapplication.data.banco.EnderecoRow
 // Por enquanto só visuais: os botões mostram "Em breve".
 
 @Composable
-private fun avisoEmBreve(): () -> Unit {
+internal fun avisoEmBreve(): () -> Unit {
     val contexto = LocalContext.current
     return { Toast.makeText(contexto, "Em breve", Toast.LENGTH_SHORT).show() }
 }
@@ -97,18 +97,35 @@ fun DadosPessoaisConteudo(
 //----Conta (vendedor)----
 
 @Composable
-fun ContaScreen(vm: CaisViewModel, aoVoltar: () -> Unit) {
+fun ContaScreen(vm: CaisViewModel, aoVoltar: () -> Unit, aoSair: () -> Unit) {
     val u = vm.usuario ?: return
     // O cadastro guarda um só documento: 11 dígitos é CPF, 14 é CNPJ
     val digitos = u.doc.filter { it.isDigit() }
+    val emBreve = avisoEmBreve()
+    var confirmarExclusao by remember { mutableStateOf(false) }
+
     ContaConteudo(
         email = u.email,
         cpf = if (digitos.length == 11) u.doc else "",
         cnpj = if (digitos.length == 14) u.doc else "",
         telefone = vm.telefoneDoUsuario,
         aoVoltar = aoVoltar,
-        aoSalvar = avisoEmBreve()
+        aoSalvar = emBreve,
+        aoSair = {
+            vm.sair()
+            aoSair()
+        },
+        // Desligado. Para ligar: troque emBreve por { confirmarExclusao = true }
+        aoExcluirConta = emBreve
     )
+
+    if (confirmarExclusao) {
+        DialogoExcluirConta(aoCancelar = { confirmarExclusao = false }) {
+            confirmarExclusao = false
+            vm.excluirConta()
+            aoSair()
+        }
+    }
 }
 
 @Composable
@@ -118,7 +135,9 @@ fun ContaConteudo(
     cnpj: String,
     telefone: String,
     aoVoltar: () -> Unit,
-    aoSalvar: () -> Unit
+    aoSalvar: () -> Unit,
+    aoSair: () -> Unit,
+    aoExcluirConta: () -> Unit
 ) {
     var emailDigitado by rememberSaveable { mutableStateOf(email) }
     var cpfDigitado by rememberSaveable { mutableStateOf(cpf) }
@@ -129,7 +148,11 @@ fun ContaConteudo(
         titulo = "Conta",
         descricao = "Confira os dados de acesso e de cadastro da sua loja.",
         aoVoltar = aoVoltar,
-        rodape = { BotaoPrimario("Salvar alterações", onClick = aoSalvar) }
+        rodape = {
+            BotaoPrimario("Salvar alterações", onClick = aoSalvar)
+            Spacer(Modifier.height(10.dp))
+            AcoesDaConta(aoSair, aoExcluirConta)
+        }
     ) {
         CampoDaConta("E-mail", emailDigitado, { emailDigitado = it }, teclado = KeyboardType.Email)
         CampoDaConta(
@@ -149,7 +172,7 @@ fun ContaConteudo(
 
 /** Campo com o rótulo em cima. */
 @Composable
-private fun CampoDaConta(
+internal fun CampoDaConta(
     rotulo: String,
     valor: String,
     aoMudar: (String) -> Unit,
@@ -189,19 +212,26 @@ private fun CampoDaConta(
 @Composable
 fun EnderecosScreen(vm: CaisViewModel, aoVoltar: () -> Unit) {
     val enderecos = remember(vm.usuario) { vm.meusEnderecos() }
-    EnderecosConteudo(enderecos = enderecos, aoVoltar = aoVoltar, aoAcao = avisoEmBreve())
+    EnderecosConteudo(
+        enderecos = enderecos,
+        daLoja = vm.usuario?.ehVendedor == true,
+        aoVoltar = aoVoltar,
+        aoAcao = avisoEmBreve()
+    )
 }
 
-/** O primeiro endereço é o principal. */
+/** O primeiro endereço é o principal. Para o vendedor, é o endereço da loja. */
 @Composable
 fun EnderecosConteudo(
     enderecos: List<EnderecoRow>,
+    daLoja: Boolean = false,
     aoVoltar: () -> Unit,
     aoAcao: () -> Unit
 ) {
     TelaDaConta(
-        titulo = "Endereços",
-        descricao = "Gerencie os locais onde deseja receber seus pedidos.",
+        titulo = if (daLoja) "Endereço" else "Endereços",
+        descricao = if (daLoja) "Informe onde fica sua loja e onde os clientes retiram os pedidos."
+        else "Gerencie os locais onde deseja receber seus pedidos.",
         aoVoltar = aoVoltar,
         rodape = { BotaoPrimario("+ Adicionar endereço", onClick = aoAcao) }
     ) {
@@ -209,7 +239,8 @@ fun EnderecosConteudo(
             EstadoVazio(
                 "📍",
                 "Nenhum endereço salvo",
-                "Adicione um endereço para receber seus pedidos em casa."
+                if (daLoja) "Adicione o endereço da loja para os clientes retirarem os pedidos."
+                else "Adicione um endereço para receber seus pedidos em casa."
             )
         } else {
             enderecos.forEachIndexed { i, e ->
@@ -284,6 +315,8 @@ fun SegurancaScreen(vm: CaisViewModel, aoVoltar: () -> Unit, aoSair: () -> Unit)
     var confirmarExclusao by remember { mutableStateOf(false) }
 
     SegurancaConteudo(
+        // Vendedor sai/exclui a conta pela tela "Conta"
+        mostrarAcoesDaConta = vm.usuario?.ehVendedor != true,
         aoVoltar = aoVoltar,
         aoOpcao = emBreve,
         aoSair = {
@@ -305,6 +338,7 @@ fun SegurancaScreen(vm: CaisViewModel, aoVoltar: () -> Unit, aoSair: () -> Unit)
 
 @Composable
 fun SegurancaConteudo(
+    mostrarAcoesDaConta: Boolean = true,
     aoVoltar: () -> Unit,
     aoOpcao: () -> Unit,
     aoSair: () -> Unit,
@@ -314,22 +348,7 @@ fun SegurancaConteudo(
         titulo = "Segurança e Privacidade",
         descricao = "Gerencie sua senha e consulte como suas informações são utilizadas no Cais.",
         aoVoltar = aoVoltar,
-        rodape = {
-            BotaoSairDaConta(onClick = aoSair)
-            Text(
-                "Excluir minha conta",
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Bold,
-                color = Perigo,
-                textAlign = TextAlign.Center,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 6.dp)
-                    .clip(RoundedCornerShape(6.dp))
-                    .clickable(onClick = aoExcluirConta)
-                    .padding(vertical = 8.dp)
-            )
-        }
+        rodape = { if (mostrarAcoesDaConta) AcoesDaConta(aoSair, aoExcluirConta) }
     ) {
         Column(
             Modifier
@@ -348,8 +367,27 @@ fun SegurancaConteudo(
 
 //----Estrutura comum----
 
+/** "Sair da conta" + "Excluir minha conta" (cliente: Segurança; vendedor: Conta). */
 @Composable
-private fun TelaDaConta(
+private fun AcoesDaConta(aoSair: () -> Unit, aoExcluirConta: () -> Unit) {
+    BotaoSairDaConta(onClick = aoSair)
+    Text(
+        "Excluir minha conta",
+        fontSize = 13.sp,
+        fontWeight = FontWeight.Bold,
+        color = Perigo,
+        textAlign = TextAlign.Center,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 6.dp)
+            .clip(RoundedCornerShape(6.dp))
+            .clickable(onClick = aoExcluirConta)
+            .padding(vertical = 8.dp)
+    )
+}
+
+@Composable
+internal fun TelaDaConta(
     titulo: String,
     descricao: String,
     aoVoltar: () -> Unit,
@@ -405,7 +443,7 @@ private fun PreviewDadosPessoais() {
 @Preview(showBackground = true, backgroundColor = 0xFFFFFFFF, widthDp = 390, heightDp = 860)
 @Composable
 private fun PreviewConta() {
-    ContaConteudo("vendedor@cais.com", "", "", "(92) 99999-1234", {}, {})
+    ContaConteudo("vendedor@cais.com", "", "", "(92) 99999-1234", {}, {}, {}, {})
 }
 
 @Preview(showBackground = true, backgroundColor = 0xFFFFFFFF, widthDp = 390, heightDp = 860)
@@ -424,5 +462,5 @@ private fun PreviewEnderecos() {
 @Preview(showBackground = true, backgroundColor = 0xFFFFFFFF, widthDp = 390, heightDp = 860)
 @Composable
 private fun PreviewSeguranca() {
-    SegurancaConteudo({}, {}, {}, {})
+    SegurancaConteudo(aoVoltar = {}, aoOpcao = {}, aoSair = {}, aoExcluirConta = {})
 }

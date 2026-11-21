@@ -47,7 +47,7 @@ internal object DadosIniciais {
             id: Int, vendedor: Int, cat: Int, nome: String, desc: String, preco: Double,
             data: String, foto: String?, oferta: Boolean = false
         ) = banco.inserirProduto(
-            ProdutoRow(id, vendedor, cat, nome, desc, preco, foto, data, true, oferta)
+            ProdutoRow(id, vendedor, cat, nome, desc, preco, foto, data, true, oferta, estoqueKg = 20.0)
         )
 
         produto(1, 3, 1, "Tambaqui", "Peixe de rio", 38.90, hoje, "foto_tambaqui")

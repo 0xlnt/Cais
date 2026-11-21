@@ -122,6 +122,26 @@ class BancoFalsoTest {
     }
 
     @Test
+    fun aceitarPedidoTiraOsKgDoEstoqueSemFicarNegativo() {
+        val item = banco.itensDoPedido(1042).first()
+        banco.mudarEstoque(item.produtoId, item.quantidadeKg + 1.0)
+        banco.avancarStatus(1042) // realizado -> confirmado
+        assertEquals(1.0, banco.produtoPorId(item.produtoId)!!.estoqueKg, 0.001)
+
+        banco.mudarEstoque(item.produtoId, 0.5)
+        banco.avancarStatus(1042) // confirmado -> preparo: não mexe no estoque
+        assertEquals(0.5, banco.produtoPorId(item.produtoId)!!.estoqueKg, 0.001)
+    }
+
+    @Test
+    fun aceitarPedidoAcimaDoEstoqueDeixaEmZero() {
+        val item = banco.itensDoPedido(1042).first()
+        banco.mudarEstoque(item.produtoId, 0.0)
+        assertNotNull(banco.avancarStatus(1042))
+        assertEquals(0.0, banco.produtoPorId(item.produtoId)!!.estoqueKg, 0.001)
+    }
+
+    @Test
     fun avaliacaoSoDepoisDeEntregueEAtualizaAMediaDoVendedor() {
         assertEquals("Só dá para avaliar pedido entregue.", banco.avaliar(1042, 5, null).erro)
         repeat(4) { banco.avancarStatus(1042) }

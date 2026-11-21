@@ -32,6 +32,15 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.style.TextAlign
+import com.example.myapplication.data.FaltaDeEstoque
+import com.example.myapplication.data.emKg
+import java.util.Locale
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -57,9 +66,13 @@ import java.util.Calendar
 
 @Composable
 fun PainelVendedorScreen(vm: CaisViewModel, aoNovoProduto: () -> Unit) {
-    var aba by remember { mutableStateOf(0) }
+    var aba by remember { mutableStateOf(vm.pegarAbaDoPainel()) }
     val pedidos = vm.pedidosDoVendedor
     val produtos = vm.produtosDoVendedor
+    // produto cujo estoque está aberto na janela
+    var estoqueDe by remember { mutableStateOf<Int?>(null) }
+    // pedido acima do estoque esperando o vendedor confirmar
+    var avisoDe by remember { mutableStateOf<Int?>(null) }
 
     Column(
         Modifier
@@ -97,7 +110,10 @@ fun PainelVendedorScreen(vm: CaisViewModel, aoNovoProduto: () -> Unit) {
                         verticalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         items(pedidos, key = { it.id }) { p ->
-                            CartaoPedidoVendedor(p) { vm.avancarStatus(p.id) }
+                            val faltas = vm.faltasDeEstoque(p)
+                            CartaoPedidoVendedor(p, acimaDoEstoque = faltas.isNotEmpty()) {
+                                if (faltas.isNotEmpty()) avisoDe = p.id else vm.avancarStatus(p.id)
+                            }
                         }
                     }
                 }
@@ -115,6 +131,7 @@ fun PainelVendedorScreen(vm: CaisViewModel, aoNovoProduto: () -> Unit) {
                                     .fillMaxWidth()
                                     .clip(RoundedCornerShape(14.dp))
                                     .background(Ice)
+                                    .clickable { estoqueDe = p.id }
                                     .padding(10.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
@@ -131,6 +148,8 @@ fun PainelVendedorScreen(vm: CaisViewModel, aoNovoProduto: () -> Unit) {
                                 Column(Modifier.weight(1f)) {
                                     Text(p.nome, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
                                     Text(p.preco.reais() + "/kg • " + p.dataPesca, fontSize = 12.sp, color = Muted)
+                                    Spacer(Modifier.height(4.dp))
+                                    EtiquetaEstoque(p.estoqueKg)
                                 }
                                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                     Switch(
@@ -158,10 +177,181 @@ fun PainelVendedorScreen(vm: CaisViewModel, aoNovoProduto: () -> Unit) {
             BotaoPrimario("+ Cadastrar produto", onClick = aoNovoProduto)
         }
     }
+
+    pedidos.firstOrNull { it.id == avisoDe }?.let { p ->
+        DialogoAcimaDoEstoque(
+            pedidoId = p.id,
+            faltas = vm.faltasDeEstoque(p),
+            aoCancelar = { avisoDe = null },
+            aoAceitar = {
+                vm.avancarStatus(p.id)
+                avisoDe = null
+            }
+        )
+    }
+
+    produtos.firstOrNull { it.id == estoqueDe }?.let { p ->
+        DialogoEstoque(
+            nome = p.nome,
+            estoqueKg = p.estoqueKg,
+            aoFechar = { estoqueDe = null },
+            aoSalvar = { kg ->
+                vm.mudarEstoque(p.id, kg)
+                estoqueDe = null
+            }
+        )
+    }
+}
+
+/** Estoque em destaque: verde com folga, amarelo acabando (menos de 5 kg), vermelho zerado. */
+@Composable
+private fun EtiquetaEstoque(kg: Double) {
+    val (fundo, cor) = when {
+        kg <= 0.0 -> Color(0xFFFDE4E4) to Perigo
+        kg < 5.0 -> Color(0xFFFFF1D6) to Color(0xFF9A5B00)
+        else -> Color(0xFFDDF3E8) to Verde
+    }
+    Text(
+        if (kg <= 0.0) "Sem estoque" else "Estoque: ${kg.emKg()}",
+        fontSize = 12.sp,
+        fontWeight = FontWeight.ExtraBold,
+        color = cor,
+        modifier = Modifier
+            .clip(RoundedCornerShape(50))
+            .background(fundo)
+            .padding(horizontal = 10.dp, vertical = 3.dp)
+    )
+}
+
+/** Aviso antes de aceitar um pedido maior que o estoque; o vendedor pode aceitar mesmo assim. */
+@Composable
+private fun DialogoAcimaDoEstoque(
+    pedidoId: Int,
+    faltas: List<FaltaDeEstoque>,
+    aoCancelar: () -> Unit,
+    aoAceitar: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = aoCancelar,
+        containerColor = Color.White,
+        title = { Text("Pedido acima do estoque", fontWeight = FontWeight.ExtraBold) },
+        text = {
+            Column {
+                Text("O pedido #$pedidoId pede mais do que o app tem no seu estoque:")
+                Spacer(Modifier.height(10.dp))
+                faltas.forEach { f ->
+                    Text(
+                        "• ${f.nome}: pedido ${f.pedidoKg.emKg()}, estoque ${f.estoqueKg.emKg()}",
+                        fontWeight = FontWeight.Bold,
+                        color = Perigo
+                    )
+                }
+                Spacer(Modifier.height(10.dp))
+                Text(
+                    "Se você tem mais do que o app mostra, pode aceitar mesmo assim. " +
+                        "O estoque desses produtos vai ficar em 0 kg.",
+                    fontSize = 13.sp,
+                    color = Muted
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = aoAceitar) {
+                Text("Aceitar mesmo assim", fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = aoCancelar) { Text("Cancelar", color = Muted) }
+        }
+    )
+}
+
+/** Mostra o estoque do produto; muda com - e + (1 kg) ou digitando o número. */
+@Composable
+private fun DialogoEstoque(
+    nome: String,
+    estoqueKg: Double,
+    aoFechar: () -> Unit,
+    aoSalvar: (Double) -> Unit
+) {
+    fun formatar(kg: Double): String =
+        if (kg % 1.0 == 0.0) kg.toLong().toString() else String.format(Locale("pt", "BR"), "%.1f", kg)
+
+    var texto by remember { mutableStateOf(formatar(estoqueKg)) }
+    val valor = texto.replace(',', '.').toDoubleOrNull()
+
+    AlertDialog(
+        onDismissRequest = aoFechar,
+        containerColor = Color.White,
+        title = { Text(nome, fontWeight = FontWeight.ExtraBold) },
+        text = {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Text(
+                    "Em estoque agora: ${estoqueKg.emKg()}",
+                    fontSize = 13.sp,
+                    color = Muted
+                )
+                Spacer(Modifier.height(16.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    BotaoDoEstoque("−", ativo = (valor ?: 0.0) > 0.0) {
+                        texto = formatar(((valor ?: 0.0) - 1.0).coerceAtLeast(0.0))
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    OutlinedTextField(
+                        value = texto,
+                        onValueChange = { novo ->
+                            if (novo.all { it.isDigit() || it == ',' || it == '.' }) texto = novo
+                        },
+                        singleLine = true,
+                        isError = valor == null,
+                        suffix = { Text("kg", color = Muted) },
+                        textStyle = TextStyle(
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.ExtraBold,
+                            textAlign = TextAlign.Center
+                        ),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                        modifier = Modifier.width(120.dp)
+                    )
+                    Spacer(Modifier.width(12.dp))
+                    BotaoDoEstoque("+", ativo = true) {
+                        texto = formatar((valor ?: 0.0) + 1.0)
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { valor?.let(aoSalvar) }, enabled = valor != null) {
+                Text("Salvar", fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = aoFechar) { Text("Cancelar", color = Muted) }
+        }
+    )
 }
 
 @Composable
-private fun CartaoPedidoVendedor(pedido: Pedido, aoAvancar: () -> Unit) {
+private fun BotaoDoEstoque(texto: String, ativo: Boolean, onClick: () -> Unit) {
+    Box(
+        Modifier
+            .size(44.dp)
+            .clip(RoundedCornerShape(12.dp))
+            .background(if (ativo) Navy else Ice)
+            .clickable(enabled = ativo, onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            texto,
+            fontSize = 22.sp,
+            fontWeight = FontWeight.ExtraBold,
+            color = if (ativo) Color.White else Muted
+        )
+    }
+}
+
+@Composable
+private fun CartaoPedidoVendedor(pedido: Pedido, acimaDoEstoque: Boolean, aoAvancar: () -> Unit) {
     val ultimo = pedido.status >= pedido.passos.lastIndex
     Column(
         Modifier
@@ -173,6 +363,15 @@ private fun CartaoPedidoVendedor(pedido: Pedido, aoAvancar: () -> Unit) {
         Text("#${pedido.id} · ${pedido.clienteNome}", fontWeight = FontWeight.ExtraBold, fontSize = 15.sp)
         Text(pedido.resumo, fontSize = 13.sp, color = Muted)
         Text(pedido.destino, fontSize = 12.sp, color = Muted)
+        if (acimaDoEstoque) {
+            Text(
+                "⚠ Pedido acima do estoque",
+                fontSize = 12.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = Perigo,
+                modifier = Modifier.padding(top = 4.dp)
+            )
+        }
         Spacer(Modifier.height(8.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
             Pilula(pedido.passos[pedido.status])

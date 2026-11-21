@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.ViewModel
 import com.example.myapplication.data.Categoria
+import com.example.myapplication.data.FaltaDeEstoque
 import com.example.myapplication.data.FiltroRapido
 import com.example.myapplication.data.ItemCarrinho
 import com.example.myapplication.data.banco.Armazenamento
@@ -291,6 +292,20 @@ class CaisViewModel(
     fun avancarStatus(pedidoId: Int) {
         repo.avancarStatus(pedidoId)
         recarregarPedidos()
+        recarregarProdutos() // aceitar o pedido tira os kg do estoque
+    }
+
+    /**
+     * Itens do pedido que pedem mais kg do que há no estoque agora.
+     * Só importa enquanto o pedido ainda não foi aceito (o estoque baixa ao aceitar).
+     */
+    fun faltasDeEstoque(pedido: Pedido): List<FaltaDeEstoque> {
+        if (pedido.status != 0) return emptyList()
+        return pedido.itens.groupBy { it.produto.id }.mapNotNull { (id, itens) ->
+            val produto = produtos.firstOrNull { it.id == id } ?: return@mapNotNull null
+            val pedidoKg = itens.sumOf { it.kg }
+            if (pedidoKg > produto.estoqueKg) FaltaDeEstoque(produto.nome, pedidoKg, produto.estoqueKg) else null
+        }
     }
 
     // ---------- produtos do vendedor ----------
@@ -302,6 +317,20 @@ class CaisViewModel(
         repo.mudarDisponibilidade(produtoId, !atual.disponivel)
         recarregarProdutos()
     }
+
+    fun mudarEstoque(produtoId: Int, estoqueKg: Double) {
+        repo.mudarEstoque(produtoId, estoqueKg)
+        recarregarProdutos()
+    }
+
+    /** Aba que o Painel abre na próxima vez (0 Pedidos, 1 Meus produtos). Vale uma vez só. */
+    private var abaDoPainel = 0
+
+    fun abrirPainelEm(aba: Int) {
+        abaDoPainel = aba
+    }
+
+    fun pegarAbaDoPainel(): Int = abaDoPainel.also { abaDoPainel = 0 }
 
     fun cadastrarProduto(
         nome: String,

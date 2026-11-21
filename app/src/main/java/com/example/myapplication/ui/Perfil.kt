@@ -27,13 +27,11 @@ import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material.icons.automirrored.outlined.Logout
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material.icons.outlined.AccountBalance
 import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material.icons.outlined.CreditCard
 import androidx.compose.material.icons.outlined.Inventory2
 import androidx.compose.material.icons.outlined.LocalShipping
-import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material.icons.outlined.Pause
 import androidx.compose.material.icons.outlined.PersonOutline
@@ -80,7 +78,7 @@ enum class ItemPerfilLoja {
     DADOS_LOJA, HORARIOS, REPUTACAO, DOCUMENTOS,
     PRODUTOS,
     ENDERECO_LOJA, DELIVERY,
-    VENDAS, RECEBIMENTO,
+    VENDAS,
     CONTA, SEGURANCA, AJUDA
 }
 
@@ -92,7 +90,11 @@ fun PerfilScreen(
     aoDadosPessoais: () -> Unit,
     aoEnderecos: () -> Unit,
     aoSeguranca: () -> Unit,
-    aoConta: () -> Unit
+    aoConta: () -> Unit,
+    aoDadosLoja: () -> Unit,
+    aoHorarios: () -> Unit,
+    aoVendas: () -> Unit,
+    aoFavoritos: () -> Unit
 ) {
     val u = vm.usuario ?: return
     val contexto = LocalContext.current
@@ -106,7 +108,14 @@ fun PerfilScreen(
         PerfilLojaConteudo(nome = u.nome, email = u.email, lojaAberta = lojaAberta) { item ->
             when (item) {
                 ItemPerfilLoja.PAUSAR -> lojaAberta = !lojaAberta
-                ItemPerfilLoja.PRODUTOS, ItemPerfilLoja.VENDAS -> aoPainel()
+                ItemPerfilLoja.PRODUTOS -> {
+                    vm.abrirPainelEm(1) // abre direto em "Meus produtos"
+                    aoPainel()
+                }
+                ItemPerfilLoja.VENDAS -> aoVendas()
+                ItemPerfilLoja.DADOS_LOJA -> aoDadosLoja()
+                ItemPerfilLoja.HORARIOS -> aoHorarios()
+                ItemPerfilLoja.ENDERECO_LOJA -> aoEnderecos()
                 ItemPerfilLoja.CONTA -> aoConta()
                 ItemPerfilLoja.SEGURANCA -> aoSeguranca()
                 else -> emBreve()
@@ -117,6 +126,7 @@ fun PerfilScreen(
             when (item) {
                 ItemPerfilCliente.DADOS_PESSOAIS -> aoDadosPessoais()
                 ItemPerfilCliente.ENDERECOS -> aoEnderecos()
+                ItemPerfilCliente.FAVORITOS -> aoFavoritos()
                 ItemPerfilCliente.SEGURANCA -> aoSeguranca()
                 else -> emBreve()
             }
@@ -314,12 +324,16 @@ fun PerfilLojaConteudo(
         CartaoRecolhivel(
             icone = Icons.Outlined.Storefront,
             titulo = "Minha loja",
-            subtitulo = "Dados, horários, avaliações e documentos",
+            subtitulo = "Dados, endereço, horários, avaliações e documentos",
             aberta = minhaLojaAberta,
             aoAlternar = { minhaLojaAberta = !minhaLojaAberta }
         ) {
             LinhaDoCartao("Dados da loja", "Nome, contato e apresentação") {
                 aoAbrir(ItemPerfilLoja.DADOS_LOJA)
+            }
+            DivisorDoCartao()
+            LinhaDoCartao("Endereço", "Local onde os clientes retiram os pedidos") {
+                aoAbrir(ItemPerfilLoja.ENDERECO_LOJA)
             }
             DivisorDoCartao()
             LinhaDoCartao("Horários de funcionamento", "Dias e horários para receber pedidos") {
@@ -340,24 +354,18 @@ fun PerfilLojaConteudo(
             aoAbrir(ItemPerfilLoja.PRODUTOS)
         }
 
-        TituloDoGrupo("Entrega e retirada")
-        LinhaDeMenu(Icons.Outlined.LocationOn, "Endereço e retirada na loja", "Local e orientações para buscar o pedido") {
-            aoAbrir(ItemPerfilLoja.ENDERECO_LOJA)
-        }
+        TituloDoGrupo("Entrega")
         LinhaDeMenu(Icons.Outlined.LocalShipping, "Delivery", "Entregador da loja ou serviço parceiro") {
             aoAbrir(ItemPerfilLoja.DELIVERY)
         }
 
         TituloDoGrupo("Financeiro")
-        LinhaDeMenu(Icons.Outlined.BarChart, "Vendas e recebimentos", "Histórico, ganhos e valores a receber") {
+        LinhaDeMenu(Icons.Outlined.BarChart, "Vendas e recebimentos", "Histórico dos pedidos entregues") {
             aoAbrir(ItemPerfilLoja.VENDAS)
-        }
-        LinhaDeMenu(Icons.Outlined.AccountBalance, "Dados de recebimento", "Gerencie a conta para seus repasses") {
-            aoAbrir(ItemPerfilLoja.RECEBIMENTO)
         }
 
         TituloDoGrupo("Configurações")
-        LinhaDeMenu(Icons.Outlined.PersonOutline, "Conta", "E-mail, CPF, CNPJ e telefone") {
+        LinhaDeMenu(Icons.Outlined.PersonOutline, "Conta", "Dados de cadastro, sair ou excluir a conta") {
             aoAbrir(ItemPerfilLoja.CONTA)
         }
         LinhaDeMenu(
