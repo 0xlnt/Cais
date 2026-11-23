@@ -27,21 +27,16 @@ import androidx.compose.material.icons.automirrored.outlined.HelpOutline
 import androidx.compose.material.icons.automirrored.outlined.Logout
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material.icons.outlined.AccountBalance
 import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.ChatBubbleOutline
 import androidx.compose.material.icons.outlined.CreditCard
 import androidx.compose.material.icons.outlined.Inventory2
 import androidx.compose.material.icons.outlined.LocalShipping
-import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material.icons.outlined.Pause
 import androidx.compose.material.icons.outlined.PersonOutline
 import androidx.compose.material.icons.outlined.PlayArrow
-import androidx.compose.material.icons.outlined.Schedule
-import androidx.compose.material.icons.outlined.StarBorder
 import androidx.compose.material.icons.outlined.Storefront
-import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.outlined.VerifiedUser
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material3.AlertDialog
@@ -79,29 +74,30 @@ enum class ItemPerfilCliente {
 }
 
 enum class ItemPerfilLoja {
-    EDITAR_LOJA, VER_LOJA, PAUSAR, CONVERSAS, NOTIFICACOES,
+    VER_LOJA, PAUSAR, CONVERSAS, NOTIFICACOES,
     DADOS_LOJA, HORARIOS, REPUTACAO, DOCUMENTOS,
-    PRODUTOS, PREPARO,
+    PRODUTOS,
     ENDERECO_LOJA, DELIVERY,
-    VENDAS, RECEBIMENTO,
-    SEGURANCA, AJUDA, SAIR
+    VENDAS,
+    CONTA, SEGURANCA, AJUDA
 }
-
-private enum class DialogoPerfil { NENHUM, SEGURANCA, EXCLUIR }
 
 /** Aba Perfil: loja para vendedor, "Meu perfil" para cliente. */
 @Composable
 fun PerfilScreen(
     vm: CaisViewModel,
-    aoSair: () -> Unit,
     aoPainel: () -> Unit,
     aoDadosPessoais: () -> Unit,
     aoEnderecos: () -> Unit,
-    aoSeguranca: () -> Unit
+    aoSeguranca: () -> Unit,
+    aoConta: () -> Unit,
+    aoDadosLoja: () -> Unit,
+    aoHorarios: () -> Unit,
+    aoVendas: () -> Unit,
+    aoFavoritos: () -> Unit
 ) {
     val u = vm.usuario ?: return
     val contexto = LocalContext.current
-    var dialogo by remember { mutableStateOf(DialogoPerfil.NENHUM) }
     var lojaAberta by remember { mutableStateOf(true) }
 
     fun emBreve() {
@@ -112,12 +108,16 @@ fun PerfilScreen(
         PerfilLojaConteudo(nome = u.nome, email = u.email, lojaAberta = lojaAberta) { item ->
             when (item) {
                 ItemPerfilLoja.PAUSAR -> lojaAberta = !lojaAberta
-                ItemPerfilLoja.PRODUTOS, ItemPerfilLoja.VENDAS -> aoPainel()
-                ItemPerfilLoja.SEGURANCA -> dialogo = DialogoPerfil.SEGURANCA
-                ItemPerfilLoja.SAIR -> {
-                    vm.sair()
-                    aoSair()
+                ItemPerfilLoja.PRODUTOS -> {
+                    vm.abrirPainelEm(1) // abre direto em "Meus produtos"
+                    aoPainel()
                 }
+                ItemPerfilLoja.VENDAS -> aoVendas()
+                ItemPerfilLoja.DADOS_LOJA -> aoDadosLoja()
+                ItemPerfilLoja.HORARIOS -> aoHorarios()
+                ItemPerfilLoja.ENDERECO_LOJA -> aoEnderecos()
+                ItemPerfilLoja.CONTA -> aoConta()
+                ItemPerfilLoja.SEGURANCA -> aoSeguranca()
                 else -> emBreve()
             }
         }
@@ -126,35 +126,10 @@ fun PerfilScreen(
             when (item) {
                 ItemPerfilCliente.DADOS_PESSOAIS -> aoDadosPessoais()
                 ItemPerfilCliente.ENDERECOS -> aoEnderecos()
+                ItemPerfilCliente.FAVORITOS -> aoFavoritos()
                 ItemPerfilCliente.SEGURANCA -> aoSeguranca()
                 else -> emBreve()
             }
-        }
-    }
-
-    if (dialogo == DialogoPerfil.SEGURANCA) {
-        AlertDialog(
-            onDismissRequest = { dialogo = DialogoPerfil.NENHUM },
-            containerColor = Color.White,
-            title = { Text("Segurança e privacidade", fontWeight = FontWeight.ExtraBold) },
-            text = { Text("Senha, privacidade e exclusão da conta.") },
-            confirmButton = {
-                // Desligado. Para ligar: troque emBreve() por dialogo = DialogoPerfil.EXCLUIR
-                TextButton(onClick = { emBreve() }) {
-                    Text("Excluir minha conta", color = Perigo, fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { dialogo = DialogoPerfil.NENHUM }) { Text("Fechar", color = Muted) }
-            }
-        )
-    }
-
-    if (dialogo == DialogoPerfil.EXCLUIR) {
-        DialogoExcluirConta(aoCancelar = { dialogo = DialogoPerfil.NENHUM }) {
-            dialogo = DialogoPerfil.NENHUM
-            vm.excluirConta()
-            aoSair()
         }
     }
 }
@@ -214,11 +189,29 @@ fun PerfilClienteConteudo(
         }
 
         Spacer(Modifier.height(18.dp))
-        CartaoMinhaConta(
+        CartaoRecolhivel(
+            icone = Icons.Outlined.PersonOutline,
+            titulo = "Minha conta",
+            subtitulo = "Dados pessoais, endereços e mais",
             aberta = contaAberta,
-            aoAlternar = { contaAberta = !contaAberta },
-            aoAbrir = aoAbrir
-        )
+            aoAlternar = { contaAberta = !contaAberta }
+        ) {
+            LinhaDoCartao("Dados pessoais", "Nome, telefone e e-mail") {
+                aoAbrir(ItemPerfilCliente.DADOS_PESSOAIS)
+            }
+            DivisorDoCartao()
+            LinhaDoCartao("Endereços", "Gerencie seus locais de entrega") {
+                aoAbrir(ItemPerfilCliente.ENDERECOS)
+            }
+            DivisorDoCartao()
+            LinhaDoCartao("Favoritos", "Seus produtos e vendedores salvos") {
+                aoAbrir(ItemPerfilCliente.FAVORITOS)
+            }
+            DivisorDoCartao()
+            LinhaDoCartao("Minhas avaliações", "Veja ou avalie suas compras") {
+                aoAbrir(ItemPerfilCliente.AVALIACOES)
+            }
+        }
 
         TituloDoGrupo("Pagamentos")
         LinhaDeMenu(Icons.Outlined.CreditCard, "Formas de pagamento", "Gerencie suas formas de pagar") {
@@ -241,12 +234,15 @@ fun PerfilClienteConteudo(
     }
 }
 
-/** Cartão "Minha conta", que abre e fecha. */
+/** Cartão que abre e fecha ("Minha conta" do cliente, "Minha loja" do vendedor). */
 @Composable
-private fun CartaoMinhaConta(
+private fun CartaoRecolhivel(
+    icone: ImageVector,
+    titulo: String,
+    subtitulo: String,
     aberta: Boolean,
     aoAlternar: () -> Unit,
-    aoAbrir: (ItemPerfilCliente) -> Unit
+    opcoes: @Composable () -> Unit
 ) {
     Column(
         Modifier
@@ -262,15 +258,15 @@ private fun CartaoMinhaConta(
                 .padding(horizontal = 14.dp, vertical = 14.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(Icons.Outlined.PersonOutline, contentDescription = null, tint = Navy, modifier = Modifier.size(22.dp))
+            Icon(icone, contentDescription = null, tint = Navy, modifier = Modifier.size(22.dp))
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text("Minha conta", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Navy)
-                Text("Dados pessoais, endereços e mais", fontSize = 11.sp, color = Muted)
+                Text(titulo, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Navy)
+                Text(subtitulo, fontSize = 11.sp, color = Muted)
             }
             Icon(
                 if (aberta) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
-                contentDescription = if (aberta) "Recolher Minha conta" else "Expandir Minha conta",
+                contentDescription = if (aberta) "Recolher $titulo" else "Expandir $titulo",
                 tint = Navy,
                 modifier = Modifier.size(22.dp)
             )
@@ -278,21 +274,7 @@ private fun CartaoMinhaConta(
 
         if (aberta) {
             DivisorDoCartao()
-            LinhaDoCartao("Dados pessoais", "Nome, telefone e e-mail") {
-                aoAbrir(ItemPerfilCliente.DADOS_PESSOAIS)
-            }
-            DivisorDoCartao()
-            LinhaDoCartao("Endereços", "Gerencie seus locais de entrega") {
-                aoAbrir(ItemPerfilCliente.ENDERECOS)
-            }
-            DivisorDoCartao()
-            LinhaDoCartao("Favoritos", "Seus produtos e vendedores salvos") {
-                aoAbrir(ItemPerfilCliente.FAVORITOS)
-            }
-            DivisorDoCartao()
-            LinhaDoCartao("Minhas avaliações", "Veja ou avalie suas compras") {
-                aoAbrir(ItemPerfilCliente.AVALIACOES)
-            }
+            opcoes()
         }
     }
 }
@@ -304,8 +286,12 @@ fun PerfilLojaConteudo(
     nome: String,
     email: String,
     lojaAberta: Boolean,
+    minhaLojaAbertaNoInicio: Boolean = false,
     aoAbrir: (ItemPerfilLoja) -> Unit
 ) {
+    // "Minha loja" começa fechada, igual ao "Minha conta" do cliente
+    var minhaLojaAberta by rememberSaveable { mutableStateOf(minhaLojaAbertaNoInicio) }
+
     Column(
         Modifier
             .fillMaxSize()
@@ -315,9 +301,7 @@ fun PerfilLojaConteudo(
     ) {
         CabecalhoDaTela("Perfil da loja")
         Spacer(Modifier.height(16.dp))
-        CabecalhoDoUsuario(nome, email, "Editar dados da loja →", "Conta de vendedor") {
-            aoAbrir(ItemPerfilLoja.EDITAR_LOJA)
-        }
+        CabecalhoDoUsuario(nome, email, textoEditar = null, tipoDaConta = "Conta de vendedor")
 
         Spacer(Modifier.height(14.dp))
         CartaoStatusDaLoja(lojaAberta, aoVerLoja = { aoAbrir(ItemPerfilLoja.VER_LOJA) }) {
@@ -336,56 +320,65 @@ fun PerfilLojaConteudo(
             ) { aoAbrir(ItemPerfilLoja.NOTIFICACOES) }
         }
 
-        TituloDoGrupo("Minha loja")
-        LinhaDeMenu(Icons.Outlined.Storefront, "Dados da loja", "Nome, contato e apresentação") {
-            aoAbrir(ItemPerfilLoja.DADOS_LOJA)
-        }
-        LinhaDeMenu(Icons.Outlined.Schedule, "Horários de funcionamento", "Dias e horários para receber pedidos") {
-            aoAbrir(ItemPerfilLoja.HORARIOS)
-        }
-        LinhaDeMenu(Icons.Outlined.StarBorder, "Reputação e avaliações", "Veja o que seus clientes estão dizendo") {
-            aoAbrir(ItemPerfilLoja.REPUTACAO)
-        }
-        LinhaDeMenu(Icons.Outlined.VerifiedUser, "Documentos e verificações", "Cadastro e documentação da loja") {
-            aoAbrir(ItemPerfilLoja.DOCUMENTOS)
+        Spacer(Modifier.height(18.dp))
+        CartaoRecolhivel(
+            icone = Icons.Outlined.Storefront,
+            titulo = "Minha loja",
+            subtitulo = "Dados, endereço, horários, avaliações e documentos",
+            aberta = minhaLojaAberta,
+            aoAlternar = { minhaLojaAberta = !minhaLojaAberta }
+        ) {
+            LinhaDoCartao("Dados da loja", "Nome, contato e apresentação") {
+                aoAbrir(ItemPerfilLoja.DADOS_LOJA)
+            }
+            DivisorDoCartao()
+            LinhaDoCartao("Endereço", "Local onde os clientes retiram os pedidos") {
+                aoAbrir(ItemPerfilLoja.ENDERECO_LOJA)
+            }
+            DivisorDoCartao()
+            LinhaDoCartao("Horários de funcionamento", "Dias e horários para receber pedidos") {
+                aoAbrir(ItemPerfilLoja.HORARIOS)
+            }
+            DivisorDoCartao()
+            LinhaDoCartao("Reputação e avaliações", "Veja o que seus clientes estão dizendo") {
+                aoAbrir(ItemPerfilLoja.REPUTACAO)
+            }
+            DivisorDoCartao()
+            LinhaDoCartao("Documentos e verificações", "Cadastro e documentação da loja") {
+                aoAbrir(ItemPerfilLoja.DOCUMENTOS)
+            }
         }
 
         TituloDoGrupo("Catálogo")
         LinhaDeMenu(Icons.Outlined.Inventory2, "Produtos e estoque", "Cadastre itens, preços e disponibilidade") {
             aoAbrir(ItemPerfilLoja.PRODUTOS)
         }
-        LinhaDeMenu(Icons.Outlined.Tune, "Opções de preparo", "Inteiro, limpo, em postas ou filé") {
-            aoAbrir(ItemPerfilLoja.PREPARO)
-        }
 
-        TituloDoGrupo("Entrega e retirada")
-        LinhaDeMenu(Icons.Outlined.LocationOn, "Endereço e retirada na loja", "Local e orientações para buscar o pedido") {
-            aoAbrir(ItemPerfilLoja.ENDERECO_LOJA)
-        }
+        TituloDoGrupo("Entrega")
         LinhaDeMenu(Icons.Outlined.LocalShipping, "Delivery", "Entregador da loja ou serviço parceiro") {
             aoAbrir(ItemPerfilLoja.DELIVERY)
         }
 
         TituloDoGrupo("Financeiro")
-        LinhaDeMenu(Icons.Outlined.BarChart, "Vendas e recebimentos", "Histórico, ganhos e valores a receber") {
+        LinhaDeMenu(Icons.Outlined.BarChart, "Vendas e recebimentos", "Histórico dos pedidos entregues") {
             aoAbrir(ItemPerfilLoja.VENDAS)
         }
-        LinhaDeMenu(Icons.Outlined.AccountBalance, "Dados de recebimento", "Gerencie a conta para seus repasses") {
-            aoAbrir(ItemPerfilLoja.RECEBIMENTO)
-        }
 
-        TituloDoGrupo("Conta e suporte")
+        TituloDoGrupo("Configurações")
+        LinhaDeMenu(Icons.Outlined.PersonOutline, "Conta", "Dados de cadastro, sair ou excluir a conta") {
+            aoAbrir(ItemPerfilLoja.CONTA)
+        }
         LinhaDeMenu(
-            Icons.Outlined.VerifiedUser, "Segurança e privacidade",
-            "Acesso, privacidade e exclusão da conta"
+            Icons.Outlined.VerifiedUser, "Privacidade e segurança",
+            "Senha, termos de uso e privacidade"
         ) { aoAbrir(ItemPerfilLoja.SEGURANCA) }
+
+        TituloDoGrupo("Ajuda")
         LinhaDeMenu(
             Icons.AutoMirrored.Outlined.HelpOutline, "Central de ajuda",
             "Suporte para você e sua loja"
         ) { aoAbrir(ItemPerfilLoja.AJUDA) }
 
-        Spacer(Modifier.height(16.dp))
-        BotaoSairDaConta { aoAbrir(ItemPerfilLoja.SAIR) }
         Spacer(Modifier.height(16.dp))
     }
 }
@@ -674,4 +667,10 @@ private fun PreviewPerfilClienteContaAberta() {
 @Composable
 private fun PreviewPerfilLoja() {
     PerfilLojaConteudo("Carlos Braga", "vendedor@cais.com", true) {}
+}
+
+@Preview(showBackground = true, backgroundColor = 0xFFFFFFFF, widthDp = 390, heightDp = 1500)
+@Composable
+private fun PreviewPerfilLojaMinhaLojaAberta() {
+    PerfilLojaConteudo("Carlos Braga", "vendedor@cais.com", true, minhaLojaAbertaNoInicio = true) {}
 }

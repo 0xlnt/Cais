@@ -81,7 +81,8 @@ fun ProdutoRow.paraUi(repo: CaisRepository): Produto {
         dataPesca = rotuloDaData(dataPesca),
         disponivel = disponivel,
         promocao = ofertaDoDia,
-        foto = fotoDrawable(foto)
+        foto = fotoDrawable(foto),
+        estoqueKg = estoqueKg
     )
 }
 

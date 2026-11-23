@@ -62,7 +62,7 @@ class BancoFalso(
         }
         categorias.forEach { append(linhaDoArquivo("categoria", it.id, it.nome)).append('\n') }
         produtos.forEach {
-            append(linhaDoArquivo("produto", it.id, it.vendedorId, it.categoriaId, it.nome, it.descricao, it.precoKg, it.foto, it.dataPesca, it.disponivel, it.ofertaDoDia)).append('\n')
+            append(linhaDoArquivo("produto", it.id, it.vendedorId, it.categoriaId, it.nome, it.descricao, it.precoKg, it.foto, it.dataPesca, it.disponivel, it.ofertaDoDia, it.estoqueKg)).append('\n')
         }
         carrinhoItens.forEach {
             append(linhaDoArquivo("carrinho_item", it.id, it.usuarioId, it.produtoId, it.quantidadeKg)).append('\n')
@@ -90,7 +90,9 @@ class BancoFalso(
                 "endereco" -> enderecos.add(EnderecoRow(c.int(0), c.int(1), c.texto(2), c.texto(3), c.texto(4), c.texto(5), c.textoOuNulo(6)))
                 "vendedor" -> vendedores.add(VendedorRow(c.int(0), c.int(1), c.texto(2), c.texto(3), c.textoOuNulo(4), c.double(5), c.booleano(6)))
                 "categoria" -> categorias.add(CategoriaRow(c.int(0), c.texto(1)))
-                "produto" -> produtos.add(ProdutoRow(c.int(0), c.int(1), c.int(2), c.texto(3), c.texto(4), c.double(5), c.textoOuNulo(6), c.texto(7), c.booleano(8), c.booleano(9)))
+                "produto" -> produtos.add(ProdutoRow(c.int(0), c.int(1), c.int(2), c.texto(3), c.texto(4), c.double(5), c.textoOuNulo(6), c.texto(7), c.booleano(8), c.booleano(9),
+                    // arquivos salvos antes do estoque não têm a coluna 10
+                    if (partes.size > 11) c.double(10) else 0.0))
                 "carrinho_item" -> carrinhoItens.add(CarrinhoItemRow(c.int(0), c.int(1), c.int(2), c.double(3)))
                 "pedido" -> pedidos.add(PedidoRow(c.int(0), c.int(1), c.int(2), c.intOuNulo(3), c.texto(4), c.texto(5), c.double(6), c.double(7), c.double(8), c.texto(9), c.long(10)))
                 "pedido_item" -> pedidoItens.add(PedidoItemRow(c.int(0), c.int(1), c.int(2), c.double(3), c.double(4)))
@@ -246,6 +248,14 @@ class BancoFalso(
         }
     }
 
+    override fun mudarEstoque(produtoId: Int, estoqueKg: Double) {
+        val i = produtos.indexOfFirst { it.id == produtoId }
+        if (i >= 0) {
+            produtos[i] = produtos[i].copy(estoqueKg = estoqueKg.coerceAtLeast(0.0))
+            salvar()
+        }
+    }
+
     // ---------- carrinho_item ----------
     override fun carrinhoDoUsuario(usuarioId: Int): List<CarrinhoItemRow> =
         carrinhoItens.filter { it.usuarioId == usuarioId }
@@ -334,6 +344,18 @@ class BancoFalso(
         if (i < 0) return null
         val proximo = StatusPedido.proximo(pedidos[i].status) ?: return null
         pedidos[i] = pedidos[i].copy(status = proximo)
+        // Quando o vendedor aceita o pedido, os kg saem do estoque (sem passar de 0:
+        // o vendedor pode aceitar mais do que o app conta, se o estoque estiver desatualizado)
+        if (proximo == StatusPedido.CONFIRMADO) {
+            itensDoPedido(pedidoId).forEach { item ->
+                val p = produtos.indexOfFirst { it.id == item.produtoId }
+                if (p >= 0) {
+                    produtos[p] = produtos[p].copy(
+                        estoqueKg = (produtos[p].estoqueKg - item.quantidadeKg).coerceAtLeast(0.0)
+                    )
+                }
+            }
+        }
         salvar()
         return pedidos[i]
     }

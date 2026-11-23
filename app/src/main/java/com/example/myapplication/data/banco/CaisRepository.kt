@@ -61,6 +61,7 @@ interface CaisRepository {
         disponivel: Boolean
     ): Resultado<ProdutoRow>
     fun mudarDisponibilidade(produtoId: Int, disponivel: Boolean)
+    fun mudarEstoque(produtoId: Int, estoqueKg: Double)
 
     // ---------- carrinho_item (carrinho do usuário LOGADO) ----------
     fun carrinhoDoUsuario(usuarioId: Int): List<CarrinhoItemRow>

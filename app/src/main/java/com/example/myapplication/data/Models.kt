@@ -48,8 +48,13 @@ data class Produto(
     val disponivel: Boolean = true,
     val promocao: Boolean = false,
     /** id do drawable (R.drawable.xxx); null = usa o emoji de reserva */
-    val foto: Int? = null
+    val foto: Int? = null,
+    /** quanto o vendedor tem para vender, em kg */
+    val estoqueKg: Double = 0.0
 )
+
+/** Item de um pedido que passa do estoque do vendedor. */
+data class FaltaDeEstoque(val nome: String, val pedidoKg: Double, val estoqueKg: Double)
 
 data class ItemCarrinho(val produto: Produto, val kg: Double) {
     val subtotal: Double get() = produto.preco * kg
