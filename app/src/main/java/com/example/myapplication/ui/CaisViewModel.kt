@@ -27,6 +27,10 @@ import com.example.myapplication.data.Usuario
 import com.example.myapplication.data.Vendedor
 import com.example.myapplication.data.Zona
 import com.example.myapplication.data.reais
+import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.launch
+import com.example.myapplication.data.remoto.CatalogoRemoto
+import com.example.myapplication.data.remoto.paraUi
 
 const val PRECO_LIMITE = 100f
 
@@ -52,13 +56,33 @@ class CaisViewModel(
     /** O carrinho fica no celular; só vai para o banco depois do login (decisão da equipe). */
     val carrinho = mutableStateListOf<ItemCarrinho>()
     val favoritos = mutableStateListOf<Int>()
+    var carregandoCatalogo by mutableStateOf(true)
+    var erroCatalogo by mutableStateOf<String?>(null)
 
     init {
-        recarregarVendedores()
-        recarregarProdutos()
+        carregarCatalogo()
         recarregarPedidos()
     }
 
+    fun carregarCatalogo(){
+        viewModelScope.launch {
+            carregandoCatalogo = true
+            erroCatalogo = null
+            try{
+                val categorias = CatalogoRemoto.categorias()
+                val vends = CatalogoRemoto.vendedores()
+                val prods = CatalogoRemoto.produtos()
+                vendedores.clear()
+                vendedores.addAll(vends.map {it.paraUi()})
+                produtos.clear()
+                produtos.addAll(prods.map{it.paraUi(categorias)})
+            } catch (e: Exception){
+                android.util.Log.e("CAIS","catálogo falhou", e )
+                erroCatalogo = "Não foi possivel carregar os produtos. verifique a conexão"
+            }
+            carregandoCatalogo = false
+        }
+    }
     private fun recarregarVendedores() {
         vendedores.clear()
         vendedores.addAll(repo.listarVendedores().map { it.paraUi(repo) })

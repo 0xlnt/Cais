@@ -9,7 +9,7 @@ data class CategoriaDto(
 )
 @Serializable
 data class VendedorDto(
-    @SerialName("id_vendedor") val id: String,
+    @SerialName("id") val id: String,
     @SerialName("nome_loja") val nomeLoja: String,
     val descricao: String? = null,
     val foto: String? = null
@@ -18,7 +18,7 @@ data class VendedorDto(
 data class ProdutoDto(
     @SerialName("id_produto") val id: Int,
     @SerialName("id_vendedor") val vendedorId: String,
-    @SerialName("id_categoria") val categoriaId: Long,
+    @SerialName("id_categoria") val categoriaId: Int,
     val nome: String,
     val descricao: String? = null,
     @SerialName("preco_kg") val precoKg: Double,
