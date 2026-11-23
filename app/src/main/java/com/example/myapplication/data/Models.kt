@@ -50,7 +50,9 @@ data class Produto(
     /** id do drawable (R.drawable.xxx); null = usa o emoji de reserva */
     val foto: Int? = null,
     /** quanto o vendedor tem para vender, em kg */
-    val estoqueKg: Double = 0.0
+    val estoqueKg: Double = 0.0,
+    /** endereço (URL) da foto enviada pelo vendedor; tem prioridade sobre [foto] */
+    val fotoUrl: String? = null
 )
 
 /** Item de um pedido que passa do estoque do vendedor. */

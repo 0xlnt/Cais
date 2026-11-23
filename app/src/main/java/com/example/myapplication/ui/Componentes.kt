@@ -97,7 +97,8 @@ fun FotoProduto(
     seed: Int,
     modifier: Modifier = Modifier,
     tamanhoEmoji: TextUnit = 34.sp,
-    foto: Int? = null
+    foto: Int? = null,
+    fotoUrl: String? = null
 ) {
     val cores = when (categoria) {
         Categoria.PEIXE ->
@@ -110,7 +111,11 @@ fun FotoProduto(
         modifier.background(Brush.verticalGradient(cores)),
         contentAlignment = Alignment.Center
     ) {
-        if (foto != null) {
+        if (fotoUrl != null) {
+            // o emoji fica por baixo enquanto a foto baixa; depois a foto cobre tudo
+            Text(categoria.emoji, fontSize = tamanhoEmoji)
+            ImagemRemota(fotoUrl, Modifier.fillMaxSize())
+        } else if (foto != null) {
             Image(
                 painter = painterResource(foto),
                 contentDescription = null,

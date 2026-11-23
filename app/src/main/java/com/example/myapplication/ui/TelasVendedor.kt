@@ -59,6 +59,17 @@ import com.example.myapplication.data.Categoria
 import com.example.myapplication.data.Pedido
 import com.example.myapplication.data.reais
 import java.util.Calendar
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.core.content.FileProvider
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.io.File
 
 // =====================================================================
 // PAINEL DO VENDEDOR
@@ -139,6 +150,7 @@ fun PainelVendedorScreen(vm: CaisViewModel, aoNovoProduto: () -> Unit) {
                                     categoria = p.categoria,
                                     seed = p.id,
                                     foto = p.foto,
+                                    fotoUrl = p.fotoUrl,
                                     modifier = Modifier
                                         .size(52.dp)
                                         .clip(RoundedCornerShape(10.dp)),
@@ -408,6 +420,27 @@ fun NovoProdutoScreen(vm: CaisViewModel, aoVoltar: () -> Unit) {
     var data by remember { mutableStateOf(hoje()) }
     var disponivel by remember { mutableStateOf(true) }
     var erro by remember { mutableStateOf<String?>(null) }
+    var salvando by remember { mutableStateOf(false) }
+    val escopo = rememberCoroutineScope()
+
+    // foto escolhida (da galeria) ou tirada (câmera); fica guardada se a tela for recriada
+    var fotoUri by rememberSaveable { mutableStateOf<Uri?>(null) }
+    var uriDaCamera by rememberSaveable { mutableStateOf<Uri?>(null) }
+
+    val galeria = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
+        if (uri != null) fotoUri = uri
+    }
+    val camera = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { tirou ->
+        if (tirou) fotoUri = uriDaCamera
+    }
+
+    fun abrirCamera() {
+        val pasta = File(contexto.cacheDir, "fotos").apply { mkdirs() }
+        val arquivo = File(pasta, "produto_${System.currentTimeMillis()}.jpg")
+        val uri = FileProvider.getUriForFile(contexto, "${contexto.packageName}.fileprovider", arquivo)
+        uriDaCamera = uri
+        camera.launch(uri)
+    }
 
     Column(
         Modifier
@@ -433,26 +466,36 @@ fun NovoProdutoScreen(vm: CaisViewModel, aoVoltar: () -> Unit) {
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp)
         ) {
-            // foto: no MVP ainda é só um espaço reservado
+            // foto do produto: tirar na hora (câmera) ou escolher da galeria
+            val fotoEscolhida = fotoUri
             Box(
                 Modifier
                     .fillMaxWidth()
-                    .height(110.dp)
+                    .height(180.dp)
                     .clip(RoundedCornerShape(14.dp))
-                    .background(Ice)
-                    .clickable {
-                        Toast
-                            .makeText(contexto, "Envio de foto entra na próxima versão", Toast.LENGTH_SHORT)
-                            .show()
-                    },
+                    .background(Ice),
                 contentAlignment = Alignment.Center
             ) {
-                Text(
-                    "Toque para adicionar a foto\n(em breve)",
-                    color = Muted,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 13.sp
-                )
+                if (fotoEscolhida != null) {
+                    ImagemLocal(fotoEscolhida, Modifier.fillMaxSize())
+                } else {
+                    Text(
+                        "Adicione uma foto do produto",
+                        color = Muted,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 13.sp
+                    )
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                ChipFiltro("Tirar foto", false) { abrirCamera() }
+                ChipFiltro("Escolher da galeria", false) {
+                    galeria.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+                }
+                if (fotoEscolhida != null) {
+                    ChipFiltro("Remover", false) { fotoUri = null }
+                }
             }
             Spacer(Modifier.height(8.dp))
 
@@ -512,13 +555,25 @@ fun NovoProdutoScreen(vm: CaisViewModel, aoVoltar: () -> Unit) {
                 .navigationBarsPadding()
                 .padding(16.dp)
         ) {
-            BotaoPrimario("Salvar produto") {
-                val resultado = vm.cadastrarProduto(nome, categoria, tipo, preco, data, disponivel)
-                if (resultado == null) {
-                    Toast.makeText(contexto, "Produto salvo!", Toast.LENGTH_SHORT).show()
-                    aoVoltar()
-                } else {
-                    erro = resultado
+            BotaoPrimario(if (salvando) "Salvando..." else "Salvar produto", ativo = !salvando) {
+                escopo.launch {
+                    salvando = true
+                    erro = null
+                    val uri = fotoUri
+                    // reduz a foto fora da tela principal, para não travar o app
+                    val bytes = uri?.let { withContext(Dispatchers.IO) { FotoUtil.jpeg(contexto, it) } }
+                    val resultado = if (uri != null && bytes == null) {
+                        "Não consegui ler a foto. Escolha ou tire outra."
+                    } else {
+                        vm.cadastrarProduto(nome, categoria, tipo, preco, data, disponivel, bytes)
+                    }
+                    salvando = false
+                    if (resultado == null) {
+                        Toast.makeText(contexto, "Produto salvo!", Toast.LENGTH_SHORT).show()
+                        aoVoltar()
+                    } else {
+                        erro = resultado
+                    }
                 }
             }
         }

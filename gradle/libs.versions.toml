@@ -15,6 +15,7 @@ composeBom = "2026.02.01"
 supabase-bom = {group = "io.github.jan-tennert.supabase", name="bom", version.ref="supabase"}
 supabase-postgrest = {group = "io.github.jan-tennert.supabase", name="postgrest-kt"}
 supabase-auth = {group = "io.github.jan-tennert.supabase", name="auth-kt"}
+supabase-storage = {group = "io.github.jan-tennert.supabase", name="storage-kt"}
 ktor-client-android = {group = "io.ktor", name = "ktor-client-android", version.ref ="ktor"}
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }

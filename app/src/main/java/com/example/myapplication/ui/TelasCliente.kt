@@ -530,6 +530,7 @@ fun ProdutoScreen(
                     categoria = produto.categoria,
                     seed = produto.id,
                     foto = produto.foto,
+                    fotoUrl = produto.fotoUrl,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(280.dp),
@@ -710,6 +711,7 @@ fun CarrinhoScreen(
                             categoria = item.produto.categoria,
                             seed = item.produto.id,
                             foto = item.produto.foto,
+                            fotoUrl = item.produto.fotoUrl,
                             modifier = Modifier
                                 .size(64.dp)
                                 .clip(RoundedCornerShape(10.dp)),

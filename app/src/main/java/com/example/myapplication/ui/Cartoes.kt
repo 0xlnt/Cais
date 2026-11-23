@@ -74,6 +74,7 @@ fun CartaoProduto(
                 categoria = produto.categoria,
                 seed = produto.id,
                 foto = produto.foto,
+                fotoUrl = produto.fotoUrl,
                 modifier = Modifier
                     .size(96.dp)
                     .clip(RoundedCornerShape(12.dp)),
@@ -135,6 +136,7 @@ fun CartaoProdutoMini(
                     categoria = produto.categoria,
                     seed = produto.id,
                     foto = produto.foto,
+                    fotoUrl = produto.fotoUrl,
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(84.dp)

@@ -32,7 +32,15 @@ import kotlinx.coroutines.launch
 import com.example.myapplication.data.remoto.CatalogoRemoto
 import com.example.myapplication.data.remoto.paraUi
 import com.example.myapplication.data.remoto.AuthRemoto
+import com.example.myapplication.data.remoto.CategoriaDto
+import com.example.myapplication.data.remoto.FotosRemoto
+import com.example.myapplication.data.remoto.ProdutoNovoDto
+import com.example.myapplication.data.remoto.idDe
+
 const val PRECO_LIMITE = 100f
+
+/** Estoque inicial de um produto novo, até a tela de cadastro ter um campo para isso. */
+private const val ESTOQUE_INICIAL_KG = 50.0
 
 /** Arquivo onde fica guardado quem está logado, para o app abrir já na conta. */
 private const val ARQUIVO_SESSAO = "sessao.txt"
@@ -59,6 +67,9 @@ class CaisViewModel(
     var carregandoCatalogo by mutableStateOf(true)
     var erroCatalogo by mutableStateOf<String?>(null)
 
+    /** Categorias do Supabase; o cadastro de produto precisa do id delas. Declarada antes do init. */
+    private var categoriasRemotas: List<CategoriaDto> = emptyList()
+
     init {
         carregarCatalogo()
         recarregarPedidos()
@@ -72,6 +83,7 @@ class CaisViewModel(
                 val categorias = CatalogoRemoto.categorias()
                 val vends = CatalogoRemoto.vendedores()
                 val prods = CatalogoRemoto.produtos()
+                categoriasRemotas = categorias
                 vendedores.clear()
                 vendedores.addAll(vends.map {it.paraUi()})
                 produtos.clear()
@@ -83,15 +95,10 @@ class CaisViewModel(
             carregandoCatalogo = false
         }
     }
-    private fun recarregarVendedores() {
-        vendedores.clear()
-        vendedores.addAll(repo.listarVendedores().map { it.paraUi(repo) })
-    }
+    // O catálogo agora vem do Supabase: recarregar é buscar tudo de novo lá.
+    private fun recarregarVendedores() = carregarCatalogo()
 
-    private fun recarregarProdutos() {
-        produtos.clear()
-        produtos.addAll(repo.listarProdutos().map { it.paraUi(repo) })
-    }
+    private fun recarregarProdutos() = carregarCatalogo()
 
     private fun recarregarPedidos() {
         pedidos.clear()
@@ -352,13 +359,25 @@ class CaisViewModel(
 
     fun alternarDisponibilidade(produtoId: Int) {
         val atual = produtos.firstOrNull { it.id == produtoId } ?: return
-        repo.mudarDisponibilidade(produtoId, !atual.disponivel)
-        recarregarProdutos()
+        viewModelScope.launch {
+            try {
+                CatalogoRemoto.definirDisponibilidade(produtoId, !atual.disponivel)
+            } catch (e: Exception) {
+                android.util.Log.e("CAIS", "não consegui mudar a disponibilidade", e)
+            }
+            carregarCatalogo()
+        }
     }
 
     fun mudarEstoque(produtoId: Int, estoqueKg: Double) {
-        repo.mudarEstoque(produtoId, estoqueKg)
-        recarregarProdutos()
+        viewModelScope.launch {
+            try {
+                CatalogoRemoto.definirEstoque(produtoId, estoqueKg)
+            } catch (e: Exception) {
+                android.util.Log.e("CAIS", "não consegui mudar o estoque", e)
+            }
+            carregarCatalogo()
+        }
     }
 
     /** Aba que o Painel abre na próxima vez (0 Pedidos, 1 Meus produtos). Vale uma vez só. */
@@ -370,31 +389,47 @@ class CaisViewModel(
 
     fun pegarAbaDoPainel(): Int = abaDoPainel.also { abaDoPainel = 0 }
 
-    fun cadastrarProduto(
+    /**
+     * Cadastra o produto no Supabase. Se [foto] (JPEG já reduzido) vier preenchida, envia
+     * primeiro ao Storage e grava a URL no produto. Devolve a mensagem de erro, ou null se deu certo.
+     */
+    suspend fun cadastrarProduto(
         nome: String,
         categoria: Categoria,
         tipo: String,
         precoTexto: String,
         dataPesca: String,
-        disponivel: Boolean
+        disponivel: Boolean,
+        foto: ByteArray? = null
     ): String? {
-        val vendedorId = usuario?.vendedorId?.toIntOrNull()?: return "Apenas vendedores cadastram produtos."
+        val vendedorId = usuario?.vendedorId ?: return "Apenas vendedores cadastram produtos."
         if (nome.isBlank()) return "Digite o nome do produto."
         val preco = precoTexto.trim().replace(',', '.').toDoubleOrNull()
         if (preco == null || preco <= 0.0) return "Digite um preço válido (ex.: 38,90)."
+        val categoriaId = categoriasRemotas.idDe(categoria)
+            ?: return "Não achei a categoria no servidor. Feche e abra o app e tente de novo."
 
-        val resultado = repo.criarProduto(
-            vendedorId = vendedorId,
-            categoriaId = repo.categoriaIdDe(categoria),
-            nome = nome,
-            descricao = tipo.trim().ifEmpty { categoria.rotulo },
-            precoKg = preco,
-            dataPesca = dataBrParaIso(dataPesca),
-            disponivel = disponivel
-        )
-        if (resultado is Resultado.Erro) return resultado.mensagem
-        recarregarProdutos()
-        return null
+        return try {
+            val urlDaFoto = foto?.let { FotosRemoto.enviar(vendedorId, it) }
+            CatalogoRemoto.criarProduto(
+                ProdutoNovoDto(
+                    vendedorId = vendedorId,
+                    categoriaId = categoriaId,
+                    nome = nome.trim(),
+                    descricao = tipo.trim().ifEmpty { categoria.rotulo },
+                    precoKg = preco,
+                    foto = urlDaFoto,
+                    dataPesca = dataBrParaIso(dataPesca),
+                    disponivel = disponivel,
+                    estoqueKg = ESTOQUE_INICIAL_KG
+                )
+            )
+            carregarCatalogo()
+            null
+        } catch (e: Exception) {
+            android.util.Log.e("CAIS", "cadastro de produto falhou", e)
+            "Não foi possível salvar o produto. Confira a conexão e tente de novo."
+        }
     }
 
     // Fica no fim da classe de propósito: só roda depois de todas as propriedades existirem.

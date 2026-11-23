@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- cacheDir/fotos: onde a foto tirada pela câmera fica antes de ser enviada -->
+    <cache-path name="fotos" path="fotos/" />
+</paths>
