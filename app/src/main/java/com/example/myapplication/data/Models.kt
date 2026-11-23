@@ -90,7 +90,9 @@ data class Pedido(
     val pagamento: String,
     val status: Int = 0,
     /** quando o pedido foi feito (milissegundos); usado na nota fiscal */
-    val criadoEm: Long = 0L
+    val criadoEm: Long = 0L,
+    /** id (uuid) de quem fez o pedido; vazio nos pedidos do banco falso */
+    val clienteId: String = ""
 ) {
     val subtotal: Double get() = itens.sumOf { it.subtotal }
     val total: Double get() = subtotal + taxa

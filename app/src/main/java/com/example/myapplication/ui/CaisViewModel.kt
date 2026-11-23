@@ -33,6 +33,12 @@ import com.example.myapplication.data.remoto.CatalogoRemoto
 import com.example.myapplication.data.remoto.paraUi
 import com.example.myapplication.data.remoto.AuthRemoto
 import com.example.myapplication.data.remoto.CategoriaDto
+import com.example.myapplication.data.remoto.EnderecoNovoDto
+import com.example.myapplication.data.remoto.ItemPedidoNovoDto
+import com.example.myapplication.data.remoto.PedidoNovoDto
+import com.example.myapplication.data.remoto.PedidosRemoto
+import com.example.myapplication.data.remoto.ZonaDto
+import com.example.myapplication.data.remoto.passoParaStatus
 import com.example.myapplication.data.remoto.FotosRemoto
 import com.example.myapplication.data.remoto.ProdutoNovoDto
 import com.example.myapplication.data.remoto.idDe
@@ -70,6 +76,12 @@ class CaisViewModel(
     /** Categorias do Supabase; o cadastro de produto precisa do id delas. Declarada antes do init. */
     private var categoriasRemotas: List<CategoriaDto> = emptyList()
 
+    /** Zonas de entrega do Supabase; o endereço do pedido guarda o id da zona. */
+    private var zonasRemotas: List<ZonaDto> = emptyList()
+
+    /** Id (uuid) de quem está logado no Supabase; null se ninguém entrou. */
+    private var usuarioId: String? = null
+
     init {
         carregarCatalogo()
         recarregarPedidos()
@@ -84,10 +96,13 @@ class CaisViewModel(
                 val vends = CatalogoRemoto.vendedores()
                 val prods = CatalogoRemoto.produtos()
                 categoriasRemotas = categorias
+                zonasRemotas = PedidosRemoto.zonas()
                 vendedores.clear()
                 vendedores.addAll(vends.map {it.paraUi()})
                 produtos.clear()
                 produtos.addAll(prods.map{it.paraUi(categorias)})
+                // os itens dos pedidos usam os produtos do catálogo: remonta a lista
+                if (usuarioId != null) recarregarPedidos()
             } catch (e: Exception){
                 android.util.Log.e("CAIS","catálogo falhou", e )
                 erroCatalogo = "Não foi possivel carregar os produtos. verifique a conexão"
@@ -100,10 +115,36 @@ class CaisViewModel(
 
     private fun recarregarProdutos() = carregarCatalogo()
 
+    /** Busca no Supabase os pedidos de quem está logado (do mais novo para o mais antigo). */
     private fun recarregarPedidos() {
-        pedidos.clear()
-        // do mais novo para o mais antigo
-        pedidos.addAll(repo.listarPedidosRecentes().map { it.paraUi(repo) })
+        val meuId = usuarioId
+        if (meuId == null) {
+            pedidos.clear()
+            return
+        }
+        viewModelScope.launch {
+            try {
+                val dtos = PedidosRemoto.pedidos()
+                val itens = PedidosRemoto.itens(dtos.map { it.id })
+                val enderecos = PedidosRemoto.enderecos(dtos.mapNotNull { it.enderecoId }.distinct())
+                val nomes = PedidosRemoto.nomes(dtos.map { it.clienteId }.distinct())
+                    .associate { it.id to (it.nome ?: "Cliente") }
+                val catalogo = produtos.toList()
+                val prontos = dtos.map { d ->
+                    d.paraUi(
+                        itens = itens,
+                        produtos = catalogo,
+                        nomeDoCliente = nomes[d.clienteId] ?: "Cliente",
+                        emailDoCliente = if (d.clienteId == meuId) usuario?.email ?: "" else "",
+                        endereco = enderecos.firstOrNull { it.id == d.enderecoId }
+                    )
+                }
+                pedidos.clear()
+                pedidos.addAll(prontos)
+            } catch (e: Exception) {
+                android.util.Log.e("CAIS", "pedidos falharam", e)
+            }
+        }
     }
 
     // ---------- sessão ----------
@@ -131,6 +172,7 @@ class CaisViewModel(
         return try {
             val perfil = AuthRemoto.entrar(email.trim(), senha)
             val vendedor = AuthRemoto.ehVendedor(perfil.id)
+            usuarioId = perfil.id
             usuario = Usuario(
                     nome = perfil.nome?:email.trim(),
                     doc = perfil.cpfCnpj ?: "",
@@ -139,6 +181,7 @@ class CaisViewModel(
                     vendedorId = if (vendedor) perfil.id else null
             )
             limparFiltros()
+            recarregarPedidos()
             null
         }catch (e: Exception){
             android.util.Log.e("CAIS", "Login Falhou", e)
@@ -172,7 +215,9 @@ class CaisViewModel(
             repo.salvarCarrinho(row.id, carrinho.map { ItemDeCompra(it.produto.id, it.kg) })
         }
         usuarioRow = null
+        usuarioId = null
         usuario = null
+        pedidos.clear()
         armazenamento?.apagar(ARQUIVO_SESSAO)
         carrinho.clear()
         limparFiltros()
@@ -293,15 +338,19 @@ class CaisViewModel(
 
     // ---------- pedidos ----------
     val meusPedidos: List<Pedido>
-        get() = pedidos.filter { it.clienteEmail.equals(usuario?.email, ignoreCase = true) }
+        get() = pedidos.filter { it.clienteId.isNotEmpty() && it.clienteId == usuarioId }
 
     val pedidosDoVendedor: List<Pedido>
         get() = pedidos.filter { it.vendedorId == usuario?.vendedorId }
 
     fun pedidoPorId(id: Int): Pedido? = pedidos.firstOrNull { it.id == id }
 
-    fun confirmarPedido(entrega: Boolean, zona: Zona, destino: String, pagamento: String): String? {
-        val u = usuarioRow ?: return "Entre na sua conta."
+    /**
+     * Cria no Supabase um pedido por vendedor (regra da equipe), com os itens e, se for entrega,
+     * o endereço. O frete é cobrado em cada pedido. Devolve a mensagem de erro, ou null se deu certo.
+     */
+    suspend fun confirmarPedido(entrega: Boolean, zona: Zona, destino: String, pagamento: String): String? {
+        val meuId = usuarioId ?: return "Entre na sua conta."
         if (removerIndisponiveis()) return "Um item não está mais disponivel e saiu do carrinho. Confira antes de confirmar"
         if (carrinho.isEmpty()) return "Seu carrinho está vazio."
         if (entrega) {
@@ -311,33 +360,79 @@ class CaisViewModel(
             }
         }
 
-        // a tela tem um campo só ("Rua das Palmeiras, 120 – Centro"): separa rua e número
-        val enderecoId = if (entrega) {
-            val digitado = destino.substringBefore(" – ")
-            val rua = digitado.substringBeforeLast(",").trim()
-            val numero = if (digitado.contains(",")) digitado.substringAfterLast(",").trim() else "s/n"
-            repo.salvarEndereco(u.id, rua, numero, zona.nome, "Manaus").id
+        // a zona escolhida na tela precisa existir no Supabase (o endereço guarda o id dela)
+        val zonaRemota = if (entrega) {
+            zonasRemotas.firstOrNull { it.bairro.equals(zona.nome, ignoreCase = true) }
+                ?: return "Essa zona de entrega ainda não está cadastrada. Escolha outra ou retire com o vendedor."
         } else null
 
-        val resultado = repo.criarPedidos(
-            clienteId = u.id,
-            itens = carrinho.map { ItemDeCompra(it.produto.id, it.kg) },
-            tipoEntrega = if (entrega) TipoEntrega.ENTREGA else TipoEntrega.RETIRADA,
-            enderecoId = enderecoId,
-            formaPagamento = pagamento,
-            frete = zona.taxa
-        )
-        if (resultado is Resultado.Erro) return resultado.mensagem
+        return try {
+            // a tela tem um campo só ("Rua das Palmeiras, 120 – Centro"): separa rua e número
+            val enderecoId = if (zonaRemota != null) {
+                val digitado = destino.substringBefore(" – ")
+                val rua = digitado.substringBeforeLast(",").trim()
+                val numero = if (digitado.contains(",")) digitado.substringAfterLast(",").trim() else "s/n"
+                PedidosRemoto.criarEndereco(
+                    EnderecoNovoDto(
+                        clienteId = meuId,
+                        zonaId = zonaRemota.id,
+                        rua = rua,
+                        bairro = zona.nome,
+                        numero = numero
+                    )
+                ).id
+            } else null
 
-        carrinho.clear()
-        recarregarPedidos()
-        return null
+            val taxa = if (entrega) zona.taxa else 0.0
+            // um pedido por vendedor
+            carrinho.groupBy { it.produto.vendedorId }.forEach { (vendedorId, itens) ->
+                val subtotal = itens.sumOf { it.subtotal }
+                val pedido = PedidosRemoto.criarPedido(
+                    PedidoNovoDto(
+                        clienteId = meuId,
+                        vendedorId = vendedorId,
+                        enderecoId = enderecoId,
+                        tipoEntrega = if (entrega) TipoEntrega.ENTREGA else TipoEntrega.RETIRADA,
+                        subtotal = subtotal,
+                        taxaEntrega = taxa,
+                        total = subtotal + taxa,
+                        formaPagamento = pagamento
+                    )
+                )
+                PedidosRemoto.criarItens(
+                    itens.map { ItemPedidoNovoDto(pedido.id, it.produto.id, it.kg, it.produto.preco) }
+                )
+            }
+
+            carrinho.clear()
+            recarregarPedidos()
+            null
+        } catch (e: Exception) {
+            android.util.Log.e("CAIS", "pedido falhou", e)
+            "Não foi possível confirmar o pedido. Confira a conexão e tente de novo."
+        }
     }
 
+    /** Passa o pedido para a próxima etapa no Supabase. Ao aceitar (etapa 1), os kg saem do estoque. */
     fun avancarStatus(pedidoId: Int) {
-        repo.avancarStatus(pedidoId)
-        recarregarPedidos()
-        recarregarProdutos() // aceitar o pedido tira os kg do estoque
+        val pedido = pedidos.firstOrNull { it.id == pedidoId } ?: return
+        val proximo = pedido.status + 1
+        if (proximo > 4) return
+        viewModelScope.launch {
+            try {
+                PedidosRemoto.mudarStatus(pedidoId, passoParaStatus(proximo, pedido.entrega))
+                if (proximo == 1) {
+                    pedido.itens.forEach { item ->
+                        val atual = produtos.firstOrNull { it.id == item.produto.id } ?: return@forEach
+                        CatalogoRemoto.definirEstoque(atual.id, (atual.estoqueKg - item.kg).coerceAtLeast(0.0))
+                    }
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("CAIS", "não consegui avançar o pedido", e)
+            }
+            recarregarPedidos()
+            carregarCatalogo()
+        }
     }
 
     /**
@@ -434,8 +529,8 @@ class CaisViewModel(
 
     // Fica no fim da classe de propósito: só roda depois de todas as propriedades existirem.
     init {
-        val id = armazenamento?.ler(ARQUIVO_SESSAO)?.trim()?.toIntOrNull()
-        val salvo = id?.let { repo.usuarioPorId(it) }
-        if (salvo != null) iniciarSessao(salvo) else armazenamento?.apagar(ARQUIVO_SESSAO)
+        // O login agora é do Supabase. Apaga o arquivo de sessão do banco falso, que
+        // reabriria um usuário de mentira (sem id no Supabase) e quebraria os pedidos.
+        armazenamento?.apagar(ARQUIVO_SESSAO)
     }
 }

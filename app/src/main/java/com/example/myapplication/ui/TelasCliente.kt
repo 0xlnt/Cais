@@ -57,7 +57,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -772,6 +774,8 @@ fun CheckoutScreen(
     var pontoIdx by remember { mutableStateOf(0) }
     var pagIdx by remember { mutableStateOf(0) }
     var erro by remember { mutableStateOf<String?>(null) }
+    var confirmando by remember { mutableStateOf(false) }
+    val escopo = rememberCoroutineScope()
 
     val entrega = modo == 0
     val zona = MockData.zonas[zonaIdx]
@@ -864,16 +868,21 @@ fun CheckoutScreen(
                 .navigationBarsPadding()
                 .padding(16.dp)
         ) {
-            BotaoPrimario("Confirmar pedido", cor = Teal) {
+            BotaoPrimario(if (confirmando) "Enviando..." else "Confirmar pedido", cor = Teal, ativo = !confirmando) {
                 val destino =
                     if (entrega) "${endereco.trim()} – ${zona.nome}"
                     else "Retirada: ${MockData.pontosRetirada[pontoIdx]}"
-                val resultado = vm.confirmarPedido(entrega, zona, destino, MockData.pagamentos[pagIdx])
-                if (resultado == null) {
-                    Toast.makeText(contexto, "Pedido confirmado!", Toast.LENGTH_SHORT).show()
-                    aoConfirmar()
-                } else {
-                    erro = resultado
+                escopo.launch {
+                    confirmando = true
+                    erro = null
+                    val resultado = vm.confirmarPedido(entrega, zona, destino, MockData.pagamentos[pagIdx])
+                    confirmando = false
+                    if (resultado == null) {
+                        Toast.makeText(contexto, "Pedido confirmado!", Toast.LENGTH_SHORT).show()
+                        aoConfirmar()
+                    } else {
+                        erro = resultado
+                    }
                 }
             }
         }
