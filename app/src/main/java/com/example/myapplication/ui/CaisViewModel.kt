@@ -150,7 +150,7 @@ class CaisViewModel(
     // ---------- busca e filtros ----------
     var busca by mutableStateOf("")
     var filtroRapido by mutableStateOf(FiltroRapido.TODOS)
-    var vendedorFiltro by mutableStateOf<Int?>(null)
+    var vendedorFiltro by mutableStateOf<String?>(null)
     var bairroFiltro by mutableStateOf<String?>(null)
     var precoMax by mutableStateOf(PRECO_LIMITE)
 
@@ -166,7 +166,7 @@ class CaisViewModel(
         get() = busca.isNotBlank() || filtroRapido != FiltroRapido.TODOS ||
             vendedorFiltro != null || bairroFiltro != null || precoMax < PRECO_LIMITE
 
-    fun vendedorDe(id: Int): Vendedor? = vendedores.firstOrNull { it.id == id }
+    fun vendedorDe(id: String): Vendedor? = vendedores.firstOrNull { it.id == id }
 
     val bairros: List<String>
         get() = vendedores.map { it.bairro }.distinct().sorted()
@@ -340,7 +340,7 @@ class CaisViewModel(
         dataPesca: String,
         disponivel: Boolean
     ): String? {
-        val vendedorId = usuario?.vendedorId ?: return "Apenas vendedores cadastram produtos."
+        val vendedorId = usuario?.vendedorId?.toIntOrNull()?: return "Apenas vendedores cadastram produtos."
         if (nome.isBlank()) return "Digite o nome do produto."
         val preco = precoTexto.trim().replace(',', '.').toDoubleOrNull()
         if (preco == null || preco <= 0.0) return "Digite um preço válido (ex.: 38,90)."

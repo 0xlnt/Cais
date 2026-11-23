@@ -31,7 +31,7 @@ fun FavoritosScreen(vm: CaisViewModel, aoVoltar: () -> Unit, aoAbrirProduto: (In
 @Composable
 fun FavoritosConteudo(
     produtos: List<Produto>,
-    vendedorDe: (Int) -> Vendedor?,
+    vendedorDe: (String) -> Vendedor?,
     aoVoltar: () -> Unit,
     aoFavoritar: (Int) -> Unit,
     aoAbrirProduto: (Int) -> Unit

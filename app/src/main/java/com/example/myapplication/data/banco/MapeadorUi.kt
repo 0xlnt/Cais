@@ -60,7 +60,7 @@ fun dataBrParaIso(texto: String): String {
 }
 
 fun VendedorRow.paraUi(repo: CaisRepository): Vendedor = Vendedor(
-    id = id,
+    id = id.toString(),
     nome = nomeLoja,
     descricao = descricao,
     bairro = repo.enderecosDoUsuario(usuarioId).firstOrNull()?.bairro ?: "Centro",
@@ -77,7 +77,7 @@ fun ProdutoRow.paraUi(repo: CaisRepository): Produto {
         categoria = categoria?.paraEnum() ?: Categoria.PEIXE,
         preco = precoKg,
         nota = repo.vendedorPorId(vendedorId)?.avaliacaoMedia ?: 0.0,
-        vendedorId = vendedorId,
+        vendedorId = vendedorId.toString(),
         dataPesca = rotuloDaData(dataPesca),
         disponivel = disponivel,
         promocao = ofertaDoDia,
@@ -95,7 +95,7 @@ fun UsuarioRow.paraUi(repo: CaisRepository): Usuario = Usuario(
     doc = "", // a tabela usuario não tem CPF/CNPJ
     email = email,
     senha = "", // a senha nunca volta do banco
-    vendedorId = repo.vendedorDoUsuario(id)?.id
+    vendedorId = repo.vendedorDoUsuario(id)?.id?.toString()
 )
 
 fun PedidoRow.paraUi(repo: CaisRepository): Pedido {
@@ -111,7 +111,7 @@ fun PedidoRow.paraUi(repo: CaisRepository): Pedido {
         id = id,
         clienteEmail = cliente?.email ?: "",
         clienteNome = cliente?.nome ?: "Cliente",
-        vendedorId = vendedorId,
+        vendedorId = vendedorId.toString(),
         itens = repo.itensDoPedido(id).mapNotNull { item ->
             repo.produtoPorId(item.produtoId)?.let {
                 // usa o preço da hora da compra, não o preço de hoje

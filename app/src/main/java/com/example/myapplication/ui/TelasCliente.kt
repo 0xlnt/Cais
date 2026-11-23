@@ -498,7 +498,7 @@ fun ProdutoScreen(
     produtoId: Int,
     aoVoltar: () -> Unit,
     aoCarrinho: () -> Unit,
-    aoVerVendedor: (Int) -> Unit
+    aoVerVendedor: (String) -> Unit
 ) {
     val contexto = LocalContext.current
     val produto = vm.produtos.firstOrNull { it.id == produtoId }

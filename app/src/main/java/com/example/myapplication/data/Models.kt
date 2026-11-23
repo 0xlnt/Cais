@@ -29,7 +29,7 @@ enum class FiltroRapido(val rotulo: String, val categoria: Categoria?) {
 }
 
 data class Vendedor(
-    val id: Int,
+    val id: String,
     val nome: String,
     val descricao: String,
     val bairro: String,
@@ -43,7 +43,7 @@ data class Produto(
     val categoria: Categoria,
     val preco: Double,
     val nota: Double,
-    val vendedorId: Int,
+    val vendedorId: String,
     val dataPesca: String,
     val disponivel: Boolean = true,
     val promocao: Boolean = false,
@@ -70,7 +70,7 @@ data class Usuario(
     val email: String,
     val senha: String,
     /** null = cliente; preenchido = vendedor (id do Vendedor) */
-    val vendedorId: Int? = null
+    val vendedorId: String? = null
 ) {
     val ehVendedor: Boolean get() = vendedorId != null
 }
@@ -80,7 +80,7 @@ data class Pedido(
     val id: Int,
     val clienteEmail: String,
     val clienteNome: String,
-    val vendedorId: Int,
+    val vendedorId: String,
     val itens: List<ItemCarrinho>,
     val entrega: Boolean,
     val destino: String,
