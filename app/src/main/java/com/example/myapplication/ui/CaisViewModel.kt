@@ -189,24 +189,34 @@ class CaisViewModel(
         }
     }
 
-    /** [doc] (CPF/CNPJ) ainda é pedido na tela, mas a tabela usuario não tem esse campo. */
-    fun cadastrar(nome: String, doc: String, email: String, senha: String, vendedor: Boolean): String? {
+    /** Cria a conta no Supabase e já deixa a pessoa logada (com o id real, que o pedido exige). */
+    suspend fun cadastrar(nome: String, doc: String, email: String, senha: String, vendedor: Boolean): String? {
         if (nome.isBlank()) return "Digite seu nome."
         if (doc.isBlank()) return "Digite seu CPF ou CNPJ."
         if (!email.contains("@") || !email.contains(".")) return "Digite um e-mail válido."
         if (senha.length < 6) return "A senha precisa ter pelo menos 6 caracteres."
 
-        val tipo = if (vendedor) TipoUsuario.VENDEDOR else TipoUsuario.CLIENTE
-        val criado = when (val r = repo.criarUsuario(nome, email, senha, "", tipo)) {
-            is Resultado.Erro -> return r.mensagem
-            is Resultado.Ok -> r.valor
+        return try {
+            val perfil = AuthRemoto.cadastrar(nome.trim(), doc.trim(), email.trim(), senha, vendedor)
+            usuarioId = perfil.id
+            usuario = Usuario(
+                nome = nome.trim(),
+                doc = doc.trim(),
+                email = email.trim(),
+                senha = "",
+                vendedorId = if (vendedor) perfil.id else null
+            )
+            limparFiltros()
+            if (vendedor) carregarCatalogo() // a loja nova passa a aparecer na lista de vendedores
+            recarregarPedidos()
+            null
+        } catch (e: Exception) {
+            android.util.Log.e("CAIS", "cadastro falhou", e)
+            val jaExiste = e.message?.contains("already", ignoreCase = true) == true ||
+                e.message?.contains("registered", ignoreCase = true) == true
+            if (jaExiste) "Esse e-mail já tem cadastro. Toque em \"Já tem conta? Entrar\"."
+            else "Não foi possível criar a conta. Confira a conexão e tente de novo."
         }
-        if (vendedor) {
-            repo.criarVendedor(criado.id, nome.trim(), "Vendedor no Cais")
-            recarregarVendedores()
-        }
-        iniciarSessao(criado)
-        return null
     }
 
     fun sair() {

@@ -18,8 +18,8 @@ android {
         applicationId = "com.example.myapplication"
         minSdk = 26
         targetSdk = 37
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.0.1"
         buildConfigField("String", "SUPABASE_URL","\"${localProps.getProperty("SUPABASE_URL", "")}\"")
         buildConfigField("String", "SUPABASE_PUBLISHABLE_KEY","\"${localProps.getProperty("SUPABASE_PUBLISHABLE_KEY", "")}\"")
 
