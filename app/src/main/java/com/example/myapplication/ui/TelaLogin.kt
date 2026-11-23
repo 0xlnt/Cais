@@ -29,9 +29,13 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.myapplication.data.banco.BancoFalso
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 
 @Composable
 fun LoginScreen(vm: CaisViewModel, aoEntrar: (ehVendedor: Boolean) -> Unit) {
+    val escopo = rememberCoroutineScope()
+    var carregando by remember { mutableStateOf(false) }
     var cadastro by remember { mutableStateOf(false) }
     var vendedor by remember { mutableStateOf(false) }
     var nome by remember { mutableStateOf("") }
@@ -99,16 +103,21 @@ fun LoginScreen(vm: CaisViewModel, aoEntrar: (ehVendedor: Boolean) -> Unit) {
         }
 
         Spacer(Modifier.height(16.dp))
-        BotaoPrimario(if (cadastro) "Criar conta" else "Entrar") {
-            val resultado = when {
-                cadastro && !aceito -> "Aceite o termo de uso dos dados para continuar."
-                cadastro -> vm.cadastrar(nome, doc, email, senha, vendedor)
-                else -> vm.entrar(email, senha)
-            }
-            if (resultado == null) {
-                aoEntrar(vm.usuario?.ehVendedor == true)
-            } else {
-                erro = resultado
+        BotaoPrimario(if (carregando) "Aguarde..." else if (cadastro) "Criar conta" else "Entrar") {
+            if (carregando) return@BotaoPrimario
+            escopo.launch {
+                carregando = true
+                val resultado = when {
+                    cadastro && !aceito -> "Aceite o termo de uso dos dados para continuar."
+                    cadastro -> vm.cadastrar(nome, doc, email, senha, vendedor)
+                    else -> vm.entrar(email, senha)
+                }
+                carregando = false
+                if (resultado == null) {
+                    aoEntrar(vm.usuario?.ehVendedor == true)
+                } else {
+                    erro = resultado
+                }
             }
         }
 

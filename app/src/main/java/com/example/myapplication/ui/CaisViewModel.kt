@@ -31,7 +31,7 @@ import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.launch
 import com.example.myapplication.data.remoto.CatalogoRemoto
 import com.example.myapplication.data.remoto.paraUi
-
+import com.example.myapplication.data.remoto.AuthRemoto
 const val PRECO_LIMITE = 100f
 
 /** Arquivo onde fica guardado quem está logado, para o app abrir já na conta. */
@@ -120,10 +120,23 @@ class CaisViewModel(
         limparFiltros()
     }
 
-    fun entrar(email: String, senha: String): String? {
-        val encontrado = repo.autenticar(email, senha) ?: return "E-mail ou senha incorretos."
-        iniciarSessao(encontrado)
-        return null
+    suspend fun entrar(email: String, senha: String): String? {
+        return try {
+            val perfil = AuthRemoto.entrar(email.trim(), senha)
+            val vendedor = AuthRemoto.ehVendedor(perfil.id)
+            usuario = Usuario(
+                    nome = perfil.nome?:email.trim(),
+                    doc = perfil.cpfCnpj ?: "",
+                    email = email.trim(),
+                    senha = "",
+                    vendedorId = if (vendedor) perfil.id else null
+            )
+            limparFiltros()
+            null
+        }catch (e: Exception){
+            android.util.Log.e("CAIS", "Login Falhou", e)
+            "E-mail ou senha incorretos."
+        }
     }
 
     /** [doc] (CPF/CNPJ) ainda é pedido na tela, mas a tabela usuario não tem esse campo. */
@@ -147,6 +160,7 @@ class CaisViewModel(
     }
 
     fun sair() {
+        viewModelScope.launch { try { AuthRemoto.sair()} catch (_: Exception) {}}
         usuarioRow?.let { row ->
             repo.salvarCarrinho(row.id, carrinho.map { ItemDeCompra(it.produto.id, it.kg) })
         }
