@@ -31,6 +31,6 @@ fun ProdutoDto.paraUi(categorias: List<CategoriaDto>): Produto {
         disponivel = disponivel,
         promocao = false,
         foto = fotoDrawable(foto),
-        estoqueKg = 999.0
+        estoqueKg = estoqueKg
     )
 }

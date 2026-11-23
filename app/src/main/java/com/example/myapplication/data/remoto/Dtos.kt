@@ -24,8 +24,11 @@ data class ProdutoDto(
     @SerialName("preco_kg") val precoKg: Double,
     val foto: String? = null,
     @SerialName("data_pesca") val dataPesca: String? = null,
-    val disponivel: Boolean = true
+    val disponivel: Boolean = true,
+    @SerialName("estoque_kg") val estoqueKg: Double = 0.0
+
 )
+
 
 
 
