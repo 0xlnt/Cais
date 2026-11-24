@@ -1,6 +1,8 @@
 package com.example.myapplication.ui
 
 import android.util.Log
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -147,7 +149,12 @@ fun CaisApp(vm: CaisViewModel = viewModel()) {
             NavHost(
                 navController = nav,
                 startDestination = inicio,
-                modifier = Modifier.padding(interno)
+                modifier = Modifier.padding(interno),
+                // sem o esmaecimento (fade) padrão entre as telas: a troca é imediata
+                enterTransition = { EnterTransition.None },
+                exitTransition = { ExitTransition.None },
+                popEnterTransition = { EnterTransition.None },
+                popExitTransition = { ExitTransition.None }
             ) {
                 composable(Rotas.LOGIN) {
                     LoginScreen(vm) {ehVendedor ->
